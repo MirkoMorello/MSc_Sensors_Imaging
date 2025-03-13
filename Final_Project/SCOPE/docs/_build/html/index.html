@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html class="writer-html5" lang="en" data-content_root="./">
+<head>
+  <meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Welcome to SCOPE’s documentation! &mdash; SCOPE 1.8 documentation</title>
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=fa44fd50" />
+      <link rel="stylesheet" type="text/css" href="_static/css/theme.css?v=19f00094" />
+
+  
+  <!--[if lt IE 9]>
+    <script src="_static/js/html5shiv.min.js"></script>
+  <![endif]-->
+  
+        <script src="_static/jquery.js?v=5d32c60e"></script>
+        <script src="_static/_sphinx_javascript_frameworks_compat.js?v=2cd50e6c"></script>
+        <script src="_static/documentation_options.js?v=d13700ae"></script>
+        <script src="_static/doctools.js?v=9a2dae69"></script>
+        <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="_static/js/theme.js"></script>
+    <link rel="index" title="Index" href="genindex.html" />
+    <link rel="search" title="Search" href="search.html" />
+    <link rel="next" title="Model capabilities" href="model_capabilities.html" /> 
+</head>
+
+<body class="wy-body-for-nav"> 
+  <div class="wy-grid-for-nav">
+    <nav data-toggle="wy-nav-shift" class="wy-nav-side">
+      <div class="wy-side-scroll">
+        <div class="wy-side-nav-search" >
+
+          
+          
+          <a href="#" class="icon icon-home">
+            SCOPE
+          </a>
+<div role="search">
+  <form id="rtd-search-form" class="wy-form" action="search.html" method="get">
+    <input type="text" name="q" placeholder="Search docs" aria-label="Search docs" />
+    <input type="hidden" name="check_keywords" value="yes" />
+    <input type="hidden" name="area" value="default" />
+  </form>
+</div>
+        </div><div class="wy-menu wy-menu-vertical" data-spy="affix" role="navigation" aria-label="Navigation menu">
+              <p class="caption" role="heading"><span class="caption-text">Contents</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="model_capabilities.html">Model capabilities</a></li>
+<li class="toctree-l1"><a class="reference internal" href="getting_started.html">Getting started</a></li>
+<li class="toctree-l1"><a class="reference internal" href="options.html">Options</a></li>
+<li class="toctree-l1"><a class="reference internal" href="directories.html">Directories</a></li>
+<li class="toctree-l1"><a class="reference internal" href="outfiles.html">Output files</a></li>
+<li class="toctree-l1"><a class="reference internal" href="history.html">Brief history of the model</a></li>
+<li class="toctree-l1"><a class="reference internal" href="acknowledgements.html">Acknowledgements</a></li>
+<li class="toctree-l1"><a class="reference internal" href="zreferences.html">References</a></li>
+<li class="toctree-l1"><a class="reference internal" href="versions.html">Version history</a></li>
+<li class="toctree-l1"><a class="reference internal" href="mSCOPE.html">mSCOPE</a></li>
+<li class="toctree-l1"><a class="reference internal" href="retrieval.html">Retrieval (Model inversion)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="youtube.html">YouTube</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Programmer Reference</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="structs.html">Structs</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api.html">API</a></li>
+</ul>
+
+        </div>
+      </div>
+    </nav>
+
+    <section data-toggle="wy-nav-shift" class="wy-nav-content-wrap"><nav class="wy-nav-top" aria-label="Mobile navigation menu" >
+          <i data-toggle="wy-nav-top" class="fa fa-bars"></i>
+          <a href="#">SCOPE</a>
+      </nav>
+
+      <div class="wy-nav-content">
+        <div class="rst-content">
+          <div role="navigation" aria-label="Page navigation">
+  <ul class="wy-breadcrumbs">
+      <li><a href="#" class="icon icon-home" aria-label="Home"></a></li>
+      <li class="breadcrumb-item active">Welcome to SCOPE’s documentation!</li>
+      <li class="wy-breadcrumbs-aside">
+            <a href="_sources/index.rst.txt" rel="nofollow"> View page source</a>
+      </li>
+  </ul>
+  <hr/>
+</div>
+          <div role="main" class="document" itemscope="itemscope" itemtype="http://schema.org/Article">
+           <div itemprop="articleBody">
+             
+  <section id="welcome-to-scope-s-documentation">
+<h1>Welcome to SCOPE’s documentation!<a class="headerlink" href="#welcome-to-scope-s-documentation" title="Link to this heading"></a></h1>
+<p>Soil Canopy Observation, Photochemistry and Energy fluxes (SCOPE, Van der Tol at al. 2009 <span id="id1">[<a class="reference internal" href="zreferences.html#id13" title="C. Van der Tol, W. Verhoef, J Timmermans, A Verhoef, and Z Su. An integrated model of soil-canopy spectral radiances, photosynthesis, fluorescence, temperature and energy balance. Biogeosciences, 6(12):3109–3129, dec 2009. URL: www.biogeosciences.net/6/3109/2009/, doi:10.5194/bg-6-3109-2009.">14</a>]</span>, Yang at al. 2021 <span id="id2">[<a class="reference internal" href="zreferences.html#id3" title="Peiqi Yang, Egor Prikaziuk, Wout Verhoef, and Christiaan Van der Tol. SCOPE 2.0: a model to simulate vegetated land surface fluxes and satellite signals. Geoscientific Model Development, 14(7):4697–4712, 7 2021. URL: https://gmd.copernicus.org/articles/14/4697/2021/, doi:10.5194/gmd-14-4697-2021.">9</a>]</span>) radiative transfer model.</p>
+<p>Video tutorials are available on <a class="reference external" href="https://youtube.com/playlist?list=PLMKVJ8XOixyTEcUkYDw1YTgKHi-FgimF8&amp;si=E-f3O-j3PrMREL97" rel="noopener noreferrer" target="_blank"><img alt="yt" class="no-scaled-link" src="_images/yt_logo_rgb_light.png" style="height: 3ex;" /></a></p>
+<div class="toctree-wrapper compound">
+<p class="caption" role="heading"><span class="caption-text">Contents</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="model_capabilities.html">Model capabilities</a></li>
+<li class="toctree-l1"><a class="reference internal" href="getting_started.html">Getting started</a></li>
+<li class="toctree-l1"><a class="reference internal" href="options.html">Options</a></li>
+<li class="toctree-l1"><a class="reference internal" href="directories.html">Directories</a></li>
+<li class="toctree-l1"><a class="reference internal" href="outfiles.html">Output files</a></li>
+<li class="toctree-l1"><a class="reference internal" href="history.html">Brief history of the model</a></li>
+<li class="toctree-l1"><a class="reference internal" href="acknowledgements.html">Acknowledgements</a></li>
+<li class="toctree-l1"><a class="reference internal" href="zreferences.html">References</a></li>
+<li class="toctree-l1"><a class="reference internal" href="versions.html">Version history</a></li>
+<li class="toctree-l1"><a class="reference internal" href="mSCOPE.html">mSCOPE</a></li>
+<li class="toctree-l1"><a class="reference internal" href="retrieval.html">Retrieval (Model inversion)</a></li>
+<li class="toctree-l1"><a class="reference internal" href="youtube.html">YouTube</a></li>
+</ul>
+</div>
+<div class="toctree-wrapper compound">
+<p class="caption" role="heading"><span class="caption-text">Programmer Reference</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="structs.html">Structs</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="structs/input/input_index.html">input structs</a></li>
+<li class="toctree-l2"><a class="reference internal" href="structs/constants/constants_index.html">constant structs</a></li>
+<li class="toctree-l2"><a class="reference internal" href="structs/output/output_index.html">output structs</a></li>
+<li class="toctree-l2"><a class="reference internal" href="structs/internal/internal_index.html">internal structs</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="api.html">API</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="api/IO.html">IO (input output)</a></li>
+<li class="toctree-l2"><a class="reference internal" href="api/RTMs.html">RTMs</a></li>
+<li class="toctree-l2"><a class="reference internal" href="api/fluxes.html">fluxes</a></li>
+<li class="toctree-l2"><a class="reference internal" href="api/lut.html">+lut</a></li>
+<li class="toctree-l2"><a class="reference internal" href="api/supporting.html">supporting</a></li>
+</ul>
+</li>
+</ul>
+</div>
+</section>
+
+
+           </div>
+          </div>
+          <footer><div class="rst-footer-buttons" role="navigation" aria-label="Footer">
+        <a href="model_capabilities.html" class="btn btn-neutral float-right" title="Model capabilities" accesskey="n" rel="next">Next <span class="fa fa-arrow-circle-right" aria-hidden="true"></span></a>
+    </div>
+
+  <hr/>
+
+  <div role="contentinfo">
+    <p>&#169; Copyright 2018, Egor Prikaziuk.</p>
+  </div>
+
+  Built with <a href="https://www.sphinx-doc.org/">Sphinx</a> using a
+    <a href="https://github.com/readthedocs/sphinx_rtd_theme">theme</a>
+    provided by <a href="https://readthedocs.org">Read the Docs</a>.
+   
+
+</footer>
+        </div>
+      </div>
+    </section>
+  </div>
+  <script>
+      jQuery(function () {
+          SphinxRtdTheme.Navigation.enable(true);
+      });
+  </script> 
+
+</body>
+</html>
