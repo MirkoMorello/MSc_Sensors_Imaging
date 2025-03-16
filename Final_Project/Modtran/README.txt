@@ -1,0 +1,1 @@
+Put the MODTRAN folder in this directory, NOT its content, just the folder. The "MODTRAN_SIMULATION_example.m" must be one level above in the filesystem hierarchy with respect to the MODTRAN root folder.
