@@ -1,4 +1,3 @@
-
 %% INITIALIZE MODTRAN PARALLEL
 % Clear MATLAB workspace and set MODTRAN path
 clearvars m MODTRANExe MODTRANPath;
@@ -35,14 +34,10 @@ disp('----------------------------------------------------');
 disp('Parallel processing enabled ->');
 disp(['-> ' num2str(poolsize) ' workers active on ' hostname]);
 disp('----------------------------------------------------');
-
-
-
-
 %% MODTRAN
 % -- SPECTRAL RANGE
 %srange = [400 2500];               % spectral range VNIR-SWIR
-srange = [650 800];				   % hyplant fluo
+srange = [650 850];				   % hyplant fluo
 
 
 
@@ -51,7 +46,7 @@ PARMS.ATM.LSUNFL = 1;
 
 % -- Atmospheric Parameters
 PARMS.ATM.AOT       = 0.01;          % Aerosol Optical Depth @550nm
-PARMS.ATM.MODEL     = 2;              % Mid-Latitude Winter (45° North Latitude).
+PARMS.ATM.MODEL     = 2;              % Mid-Latitude Winter (45  North Latitude).
 PARMS.ATM.IHAZE     = 0;              % Aerosol vertical profile
 PARMS.ATM.CDASTM    = ' ';            % Aerosol Angstrom Law inputs
 PARMS.ATM.ASTMX     = 0;              % Angstrom parameter
@@ -71,57 +66,79 @@ PARMS.ATM.GNDALT    = 0.01;       % GNDALT - ground altitude
 
 PARMS.ATM.WVL       = [srange(1) srange(2)];
 
+%% RUN MODTRAN SIMULATION
+% Run MODTRAN simulation to obtain the transfer functions.
+[wvlLUT, T14, DV] = run_MODTRAN5_AC_PAR_4RUNS('./', 'MODTRAN_SCOPE_ATM', PARMS, 'FLUO', 'A', 1, 0, 0);
+for i = 1:14
+    eval(sprintf('t%d = T14(:,%d);', i, i));
+end
+
+%% LOAD WAVELENGTHS, REFLECTANCE, AND FLUORESCENCE DATA
+wlS = load('wlS.txt');  % Assumes wlS.txt contains numeric wavelengths
+wlF = load('wlF.txt');  % Assumes wlS.txt contains numeric wavelengths
+
+% Use readmatrix (available in R2019a and later) to load data while handling header lines
+R_data   = readmatrix('reflectance.csv');    % Size: [n x numObs]
+SIF_data = readmatrix('fluorescence.csv');     % Size: [n x numObs]
+
+% Interpolate each observation onto the MODTRAN wavelength grid (wvlLUT)
+R = interp1(wlS, R_data', wvlLUT)';  
+F = interp1(wlF, SIF_data', wvlLUT)';
+
+%% COMPUTE BOTTOM-OF-ATMOSPHERE RADIANCE (LBOA)
+% Here we assume LBOA is the sum of the reflectance signal and the fluorescence.
+%LBOA = t1 .* (t4 .* R + ((t5 + t2 .* R) ./ (1 - R .* t3)) + F + ((F .* t3 .* R) ./ (1 - R .* t3)));
 
 
+%% COMPUTE WHITE LAMBERTIAN REFERENCE RADIANCE (LWLR)
+%LWLR = t1 .* (t4 + (t5 + t12 .* R) / (1 - R .* t3)) + ((F .* t3) ./ (1 - R .* t3));
 
-%% ATMOSPHERIC SIMULATIONS (MODTRAN5)
+%% COMPUTE APPARENT REFLECTANCE (rho_app) AS PER EQ. (5)
+%rho_app = LBOA ./ LWLR;  % Element-wise division for each observation
 
+%% Compute the LTOA
+%LTOA = (t1 .* t2) + ((t1 .* (t8 .* rho_app + t9 .* rho_app + t10 .* rho_app + t11 .* rho_app) + (t6 * F + t7 * F)) ./ (1 - t3 .* R));
 
-[wvlLUT,T14,DV] = run_MODTRAN5_AC_PAR_4RUNS('./', 'MODTRAN_SCOPE_ATM',...
-    PARMS,'FLUO','A', 1, 0, 0);                                      % DEBUG
+%% DEFINING PARAMETERS RANGE
 
-% EXTRACT T14
-for i=1:14; eval(['t' num2str(i) '= T14(:,' num2str(i) ');']); end
-
-
-%% SURFACE REFLECTANCE (load file)
-
-fname = "E:\google_drive_unimib\SNOW\DATA\cal_val_new.xlsx";
-
-T = readtable(fname,'Sheet','plateau_rosa');
+GNDALT_values = [0.01];  % Example values (meters)
+SZA_values    = [27];        % Example values (degrees)
+AOT_values    = [0.01];      % Example values
 
 
+%% ITERATING OVER ALL THE POSSIBLE COMBINATIONS
+[gridGNDALT, gridSZA, gridAOT] = ndgrid(GNDALT_values, SZA_values, AOT_values);
 
-%% SURFACE/ATMOSPHERE RT COUPLING
+combinations = [gridGNDALT(:), gridSZA(:), gridAOT(:)];
 
-wvl = R(:,1);
-%R = R(:,2:end);
-R = R(:,[2 5]);
-R = interp1(wvl, R, wvlLUT);
+for idx = 1:size(combinations, 1)
+    currentGNDALT = combinations(idx, 1);
+    currentSZA    = combinations(idx, 2);
+    currentAOT    = combinations(idx, 3);
+    
+    % Process your combination here:
+    fprintf('Processing GNDALT = %g, SZA = %g, AOT = %g\n', currentGNDALT, currentSZA, currentAOT);
+    
+    [wvlLUT_new, T14, DV] = run_MODTRAN5_AC_PAR_4RUNS('./', 'MODTRAN_SCOPE_ATM', PARMS, 'FLUO', 'A', 1, 0, 0);
+    for m = 1:14
+        eval(sprintf('t%d = T14(:,%d);', m, m));
+    end
 
-LSUN    = t1.*t4;
-LSKY    = t1.*t5;
-LBOA    = t1.*(t4+t5)  .* R;
-%LTOA    = t1.*t2 + (t1.*(t4+t5)  .* R .* (t6+t7)) ./ (1-R.*t3);
-% Bayat
-LTOA = (t1.*t2) + t1.*t8.*R + t1.* ( ( (t9).*R + t10.* R + t11.*R) ./ (1-R.*t3));
+    % Here we assume LBOA is the sum of the reflectance signal and the fluorescence.
+    % Equation 3
+    LBOA = t1' .* (t4' .* R + ((t5' + t2' .* R) ./ (1 - R .* t3')) + F + ((F .* t3' .* R) ./ (1 - R .* t3')));
+    
+    % Equation 4
+    LWLR = t1' .* (t4' + (t5' + t12' .* R) ./ (1 - R .* t3')) + ((F .* t3') ./ (1 - R .* t3'));
 
+    % Equation 5
+    rho_app = LBOA ./ LWLR;  % Element-wise division for each observation
 
+    % Equation 7
+    LTOA = (t1' .* t2') + ((t1' .* (t8' .* rho_app + t9' .* rho_app + t10' .* rho_app + t11' .* rho_app) + (t6' .* F + t7' .* F)) ./ (1 - t3' .* R));
 
+    filename_LTOA = sprintf('LTOA_GNDALT_%g_SZA_%g_AOT_%g.csv', PARMS.ATM.GNDALT, PARMS.ATM.SZA, PARMS.ATM.AOT);
 
+    csvwrite(filename_LTOA, [wvlLUT_new, LTOA']);
 
-
-
-
-%% SPECTRAL CONVOLUTION
-
-% LSUN_   = convolve_ISRF(wvlLUT,LSUN,  prs_wvl, prs_fwhm);
-% LSKY_   = convolve_ISRF(wvlLUT,LSKY,  prs_wvl, prs_fwhm);
-% LBOA_   = convolve_ISRF(wvlLUT,LBOA,  prs_wvl, prs_fwhm);
-% LTOA_   = convolve_ISRF(wvlLUT,LTOA,  prs_wvl, prs_fwhm);
-% 
-% LSKYa_  = convolve_ISRF(wvlLUT,LSKYa, prs_wvl, prs_fwhm);
-% LBOAa_  = convolve_ISRF(wvlLUT,LBOAa, prs_wvl, prs_fwhm);
-% LTOAa_  = convolve_ISRF(wvlLUT,LTOAa, prs_wvl, prs_fwhm);
-
-
+end
