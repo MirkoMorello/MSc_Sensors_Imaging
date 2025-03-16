@@ -11,6 +11,8 @@ __pycache__/
 .DS_Store
 
 */MODTRAN5/*
+*/SCOPE/docs/*
+*/SCOPE/src/*
 .Python
 build/
 develop-eggs/
