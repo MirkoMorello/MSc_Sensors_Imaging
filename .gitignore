@@ -13,6 +13,9 @@ __pycache__/
 */MODTRAN5/*
 */SCOPE/docs/*
 */SCOPE/src/*
+*/SCOPE/input/*
+*/SCOPE/output/*
+
 .Python
 build/
 develop-eggs/
