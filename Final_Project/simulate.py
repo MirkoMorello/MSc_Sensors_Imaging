@@ -126,7 +126,7 @@ class HyPlantSensorSimulator(nn.Module):
         
         return L_hyp
 
-class HyPlantSimulator(nn.Module):
+class SFMNNSimulation(nn.Module):
     def __init__(self, sensor_wavelengths):
         super().__init__()
         self.four_stream = FourStreamSimulator()

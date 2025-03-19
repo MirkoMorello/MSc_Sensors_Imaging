@@ -11,8 +11,7 @@ class SFMNNDataset(Dataset):
                  lookup_table, 
                  data_folder, 
                  patch_size=5):
-        self.patch_size = patch_size  # Each patch will have patch_size**2 elements
-        
+        self.patch_size = patch_size  # Each patch is patch_size x patch_size
         # Temporary lists to collect data from JSON files
         LTOA_list = []  
         XTE_list = []   
@@ -24,7 +23,7 @@ class SFMNNDataset(Dataset):
         with open(lookup_table) as f:
             lookup_table_data = json.load(f)
             wl = lookup_table_data["modtran_wavelength"]
-            self.wl = wl
+            self.wl = wl  # e.g., list of 1024 wavelengths
 
         # Load and process each JSON file
         for file_path in tqdm(glob.glob(data_folder + "*.json"), desc="Loading JSON files"):
@@ -50,7 +49,7 @@ class SFMNNDataset(Dataset):
             XTE_list.append(XTE_value)
             AMBC_list.append(int(amb_c[:-5]))  # Ensure AMBC is an integer
 
-        # Build the dataset DataFrame from LTOA values and add extra columns
+        # Build the dataset DataFrame from LTOA values and add extra columns.
         self.dataset = pd.DataFrame(LTOA_list, columns=self.wl)
         self.dataset['XTE'] = XTE_list
         self.dataset['SZA'] = SZA_list
@@ -67,34 +66,37 @@ class SFMNNDataset(Dataset):
 
     def _compute_tensor_patch(self, patch, num_wl):
         """
-        Convert a patch (DataFrame) into a tensor of shape [4, patch_elem_count, num_wl]
-        where channel 0 is LTOA and channels 1-3 are XTE, SZA, GNDALT (each expanded along the wavelength dimension).
+        Convert a patch (DataFrame) into a tensor of shape [patch_size, patch_size, num_wl+3],
+        where:
+          - The first num_wl channels (typically 1024) correspond to the LTOA spectral signal.
+          - The last three channels correspond to XTE, SZA, and GNDALT.
         """
-        # LTOA: [patch_elem_count, num_wl]
-        ltoa = patch[self.wl].values  
-        # Extra variables: each originally [patch_elem_count, 1]
-        xte = patch['XTE'].values.reshape(-1, 1)
-        sza = patch['SZA'].values.reshape(-1, 1)
-        gndalt = patch['GNDALT'].values.reshape(-1, 1)
-        # Expand each extra variable along the wavelength dimension
-        xte_expanded = np.repeat(xte, num_wl, axis=1)
-        sza_expanded = np.repeat(sza, num_wl, axis=1)
-        gndalt_expanded = np.repeat(gndalt, num_wl, axis=1)
-        # Stack into a tensor with shape [4, patch_elem_count, num_wl]
-        patch_tensor = np.stack([ltoa, xte_expanded, sza_expanded, gndalt_expanded], axis=0)
+        patch_elem_count = self.patch_size ** 2
+        # LTOA: shape (patch_elem_count, num_wl)
+        ltoa = patch[self.wl].values  # shape: (patch_elem_count, num_wl)
+        # Reshape spectral data into [patch_size, patch_size, num_wl]
+        ltoa = ltoa.reshape(self.patch_size, self.patch_size, num_wl)
+
+        # Extra variables: each is scalar per row. Reshape to [patch_size, patch_size, 1]
+        xte = patch['XTE'].values.reshape(self.patch_size, self.patch_size, 1)
+        sza = patch['SZA'].values.reshape(self.patch_size, self.patch_size, 1)
+        gndalt = patch['GNDALT'].values.reshape(self.patch_size, self.patch_size, 1)
+
+        # Concatenate along the channel dimension
+        patch_tensor = np.concatenate([ltoa, xte, sza, gndalt], axis=-1)
         return torch.tensor(patch_tensor, dtype=torch.float)
 
     def _resample_patches(self):
         """
-        Recompute patches (as tensors) by grouping rows by AMBC, shuffling each group,
-        and splitting each group into patches of patch_size**2 rows.
-        For the last patch (if not enough rows), pad by randomly sampling rows from the group.
+        Recompute patches (as tensors) by grouping rows by AMBC (atmospheric condition),
+        shuffling each group, and splitting each group into patches of patch_size**2 rows.
+        For the last patch (if not enough rows), pad by randomly sampling rows from the same group.
         """
         self.patches = []
         patch_elem_count = self.patch_size ** 2
         num_wl = len(self.wl)
 
-        # Group the dataset by AMBC so that each patch remains homogeneous.
+        # Group the dataset by AMBC so that each patch has homogeneous atmospheric conditions.
         for ambc, group in self.dataset.groupby('AMBC'):
             group = group.sample(frac=1).reset_index(drop=True)
             n_rows = len(group)
