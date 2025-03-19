@@ -1,100 +1,110 @@
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
+
+class DimReduction(nn.Module):
+    """
+    Reduces the input dimensionality from (C) to reduced_dim.
+    Expects input shape (N, C) where N = B * H * W.
+    """
+    def __init__(self, input_dim=1027, reduced_dim=100):
+        super(DimReduction, self).__init__()
+        self.fc = nn.Linear(input_dim, reduced_dim)
+        self.bn = nn.BatchNorm1d(reduced_dim)
+        self.relu = nn.ReLU()
+
+    def forward(self, x):
+        # x shape: [N, input_dim]
+        x = self.fc(x)
+        x = self.bn(x)
+        x = self.relu(x)
+        return x
 
 class ResidualMLPBlock(nn.Module):
+    """
+    A residual block that applies a linear layer with batch normalization,
+    ReLU activation, optional dropout, and a skip connection.
+    """
     def __init__(self, in_dim, out_dim, dropout=0.0):
-        super().__init__()
+        super(ResidualMLPBlock, self).__init__()
         self.linear = nn.Linear(in_dim, out_dim)
         self.bn = nn.BatchNorm1d(out_dim)
-        self.relu = nn.ReLU()
         self.dropout = nn.Dropout(dropout) if dropout > 0 else nn.Identity()
-        
-        # Residual connection
-        self.residual = nn.Identity()
+        self.relu = nn.ReLU()
+        # Adjust the skip connection if the dimensions differ.
         if in_dim != out_dim:
-            self.residual = nn.Sequential(
-                nn.Linear(in_dim, out_dim),
-                nn.BatchNorm1d(out_dim)
-            )
-        
+            self.skip = nn.Linear(in_dim, out_dim)
+        else:
+            self.skip = nn.Identity()
+
     def forward(self, x):
-        identity = self.residual(x)
+        residual = self.skip(x)
         out = self.linear(x)
         out = self.bn(out)
         out = self.relu(out)
         out = self.dropout(out)
-        return out + identity
+        out = out + residual
+        out = self.relu(out)
+        return out
+
+class Encoder(nn.Module):
+    """
+    Encoder module composed of a sequence of residual MLP blocks.
+    According to the paper's Table 4, the encoder (e_in) has:
+      - Stage 1: Three blocks that transform from 100 to 50 channels (dropout=0.1)
+      - Stage 2: Three blocks keeping dimension 50 (dropout=0.0)
+      - Stage 3: One final residual block (dropout=0.0)
+    """
+    def __init__(self):
+        super(Encoder, self).__init__()
+        self.stage1 = nn.Sequential(
+            ResidualMLPBlock(100, 50, dropout=0.1),
+            ResidualMLPBlock(50, 50, dropout=0.1),
+            ResidualMLPBlock(50, 50, dropout=0.1)
+        )
+        self.stage2 = nn.Sequential(
+            ResidualMLPBlock(50, 50, dropout=0.0),
+            ResidualMLPBlock(50, 50, dropout=0.0),
+            ResidualMLPBlock(50, 50, dropout=0.0)
+        )
+        self.stage3 = ResidualMLPBlock(50, 50, dropout=0.0)
+
+    def forward(self, x):
+        # x shape: [N, 100]
+        x = self.stage1(x)
+        x = self.stage2(x)
+        x = self.stage3(x)
+        return x
 
 class SFMNNEncoder(nn.Module):
-    def __init__(self, spectral_bands):
-        super().__init__()
-        
-        # Input parameters from paper
-        self.spectral_bands = spectral_bands  # FLUO module channels
-        self.additional_vars = 3    # Flight height, SZA, across-track position
-        self.total_input_dim = self.spectral_bands + self.additional_vars
-        
-        # Architecture parameters from Table 4
-        self.dims = [100, 50, 50]
-        self.repeats = [3, 3, 1]
-        self.dropout_rates = [0.1, 0.0, 0.0]
-        
-        # Input normalization (per-pixel BN)
-        self.input_norm = nn.BatchNorm1d(self.total_input_dim)
-        
-        # Dimensionality reduction (k_in)
-        self.dim_reduction = nn.Sequential(
-            nn.Linear(self.total_input_dim, self.dims[0]),
-            nn.ReLU(),
-            nn.BatchNorm1d(self.dims[0])
-        )
-        
-        # Build encoder blocks (h modules)
-        self.blocks = nn.ModuleList()
-        current_dim = self.dims[0]
-        
-        for i, (dim, n_repeat) in enumerate(zip(self.dims, self.repeats)):
-            for _ in range(n_repeat):
-                block = nn.Sequential(
-                    ResidualMLPBlock(current_dim, dim, self.dropout_rates[i]),
-                    nn.BatchNorm1d(dim),
-                    nn.ReLU()
-                )
-                self.blocks.append(block)
-                current_dim = dim
-        
-        # Final projection
-        self.final_proj = nn.Linear(current_dim, 50)  # Output latent dimension
-        
+    """
+    Complete encoder that works with input patches of shape [B, H, W, C]
+    where C = 1024 (spectral channels) + 3 (extra variables).
+    The network processes each pixel (flattening the H and W dimensions),
+    applies dimensionality reduction and the encoder, and then reshapes
+    the output back to [B, H, W, latent_dim] (latent_dim=50).
+    """
+    def __init__(self, input_dim=1027, reduced_dim=100):
+        super(SFMNNEncoder, self).__init__()
+        self.dim_red = DimReduction(input_dim, reduced_dim)
+        self.encoder = Encoder()
+
     def forward(self, x):
-        """
-        Args:
-            x: Input tensor [B, C, H, W] where:
-                - C = 1024 spectral bands + 3 additional variables
-                - H, W = spatial dimensions (e.g., 17x17 patch)
-        
-        Returns:
-            p_xy: Encoded features [B, latent_dim, H, W]
-        """
-        B, C, H, W = x.shape
-        
-        # Flatten spatial dimensions
-        x = x.view(B, C, -1).permute(0, 2, 1)  # [B, H*W, C]
-        
-        # Input normalization
-        x = self.input_norm(x.permute(0, 2, 1)).permute(0, 2, 1)
-        
-        # Dimensionality reduction
-        x = self.dim_reduction(x)
-        
-        # Process through encoder blocks
-        for block in self.blocks:
-            x = block(x)
-            
-        # Final projection
-        p_xy = self.final_proj(x)
-        
-        # Reshape back to spatial dimensions
-        p_xy = p_xy.permute(0, 2, 1).view(B, -1, H, W)
-        
-        return p_xy
+        # x shape: [B, H, W, C]
+        B, H, W, C = x.shape
+        # Flatten spatial dimensions: [B*H*W, C]
+        x = x.reshape(B * H * W, C)
+        x = self.dim_red(x)  # Shape: [B*H*W, reduced_dim] (e.g., [B*H*W, 100])
+        x = self.encoder(x)  # Shape: [B*H*W, latent_dim] (latent_dim is 50)
+        # Reshape back to spatial layout: [B, H, W, latent_dim]
+        x = x.reshape(B, H, W, -1)
+        return x
+
+# Example usage:
+if __name__ == "__main__":
+    # Suppose we have a batch of patches with each patch of shape [H, W, C],
+    # e.g., H = W = 17 and C = 1027 (1024 spectral + 3 extra variables)
+    dummy_input = torch.randn(8, 17, 17, 1027)  # Batch size = 8
+    model = SFMNNEncoder()
+    latent = model(dummy_input)
+    print("Latent representation shape:", latent.shape)  # Expected: [8, 17, 17, 50]
