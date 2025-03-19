@@ -47,87 +47,97 @@ class SCOPEWrapperMultiRun:
     def _get_default_parameters(self):
         """Comprehensive default parameters for SCOPE."""
         return {
-            # PROSPECT
-            "Cab": 40.0,
-            "Cca": 10.0,
-            "Cdm": 0.012,
-            "Cw": 0.009,
-            "Cs": 0.0,
-            "Cant": 1.0,
-            "Cp": 0.0,
-            "Cbc": 0.0,
-            "N": 1.5,
-            "rho_thermal": 0.01,
-            "tau_thermal": 0.01,
-            # Leaf Biochemical
-            "Vcmax25": 60.0,
-            "BallBerrySlope": 8.0,
-            "BallBerry0": 0.01,
-            "Type": 0.0,
-            "kV": 0.64,
-            "Rdparam": 0.015,
-            "Kn0": 2.48,
-            "Knalpha": 2.83,
-            "Knbeta": 0.114,
-            # Magnani
-            "Tyear": 15.0,
-            "beta": 0.51,
-            "kNPQs": 0.0,
-            "qLs": 1.0,
-            "stressfactor": 1.0,
-            # Fluorescence
-            "fqe": 0.01,
-            # Soil
-            "spectrum": 1.0,
-            "rss": 500.0,
-            "rs_thermal": 0.06,
-            "cs": 1180.0,
-            "rhos": 1800.0,
-            "lambdas": 1.55,
-            "SMC": 25.0,
-            "BSMBrightness": 0.5,
-            "BSMlat": 25.0,
-            "BSMlon": 45.0,
-            # Canopy
-            "LAI": 3.0,
-            "hc": 2.0,
-            "LIDFa": -0.35,
-            "LIDFb": -0.15,
-            "leafwidth": 0.1,
-            "Cv": 1.0,
-            "crowndiameter": 1.0,
-            # Meteo
-            "z": 5.0,
-            "Rin": 800.0,
-            "Ta": 20.0,
-            "Rli": 300.0,
-            "p": 970.0,
-            "ea": 15.0,
-            "u": 2.0,
-            "Ca": 410.0,
-            "Oa": 209.0,
-            # Aerodynamic
-            "zo": 0.25,
-            "d": 1.34,
-            "Cd": 0.3,
-            "rb": 10.0,
-            "CR": 0.35,
-            "CD1": 20.6,
-            "Psicor": 0.2,
-            "CSSOIL": 0.01,
-            "rbs": 10.0,
-            "rwc": 0.0,
-            # Timeseries
-            "startDOY": 20060618.0,
-            "endDOY": 20300101.0,
-            "LAT": 51.55,
-            "LON": 5.55,
-            "timezn": 1.0,
-            # Angles
-            "tts": 35.0,
-            "tto": 0.0,
-            "psi": 0.0,
+            # PROSPECT leaf optical properties
+            "Cab": 40.0,          # Chlorophyll a+b content (µg/cm²)
+            "Cca": 10.0,          # Carotenoid content (µg/cm²)
+            "Cdm": 0.012,         # Dry matter content (g/cm²)
+            "Cw": 0.009,          # Equivalent water thickness (cm)
+            "Cs": 0.0,            # Structure coefficient (non-pigment absorbing contents)
+            "Cant": 1.0,          # Anthocyanin content (relative units)
+            "Cp": 0.0,            # Additional pigment content (if applicable)
+            "Cbc": 0.0,           # Brown pigment content (if applicable)
+            "N": 1.5,             # Leaf structure parameter (number of effective layers)
+            "rho_thermal": 0.01,  # Thermal reflectance factor
+            "tau_thermal": 0.01,  # Thermal transmittance factor
+
+            # Leaf Biochemical parameters
+            "Vcmax25": 60.0,         # Maximum carboxylation rate at 25°C (µmol m⁻² s⁻¹)
+            "BallBerrySlope": 8.0,   # Slope parameter for the Ball-Berry stomatal conductance model
+            "BallBerry0": 0.01,      # Intercept parameter for the Ball-Berry model
+            "Type": 0.0,             # Indicator for leaf biochemical type or model variant
+            "kV": 0.64,              # Rate constant related to photosynthetic capacity
+            "Rdparam": 0.015,        # Leaf dark respiration rate parameter (µmol m⁻² s⁻¹)
+            "Kn0": 2.48,             # Parameter for nitrogen limitation or related biochemical process
+            "Knalpha": 2.83,         # Scaling factor (alpha) in the nitrogen limitation model
+            "Knbeta": 0.114,         # Scaling factor (beta) in the nitrogen limitation model
+
+            # Magnani model parameters (canopy biochemistry/structure)
+            "Tyear": 15.0,       # Mean annual temperature used in the Magnani model (°C)
+            "beta": 0.51,        # Scaling parameter in the Magnani model for canopy processes
+            "kNPQs": 0.0,        # Parameter related to non-photochemical quenching in the canopy
+            "qLs": 1.0,          # Leaf-level parameter (e.g., efficiency or scaling factor) in the Magnani model
+            "stressfactor": 1.0, # Factor to account for environmental stress effects on leaves
+
+            # Fluorescence module
+            "fqe": 0.01,         # Fluorescence quantum efficiency (fraction of absorbed light re-emitted as fluorescence)
+
+            # Soil properties
+            "spectrum": 1.0,     # Indicator for soil spectral signature or scaling of soil reflectance
+            "rss": 500.0,        # Soil surface roughness or reflectance scaling parameter
+            "rs_thermal": 0.06,  # Soil thermal reflectance factor
+            "cs": 1180.0,        # Soil heat capacity or specific heat (J/m²K) [context-dependent]
+            "rhos": 1800.0,      # Soil bulk density (kg/m³)
+            "lambdas": 1.55,     # Soil thermal conductivity (W/mK)
+            "SMC": 25.0,         # Soil moisture content (percentage or volumetric, depending on the model)
+            "BSMBrightness": 0.5,# Soil brightness parameter for the Bare Soil Model (BSM)
+            "BSMlat": 25.0,      # Latitude value used in the BSM calibration (degrees)
+            "BSMlon": 45.0,      # Longitude value used in the BSM calibration (degrees)
+
+            # Canopy structure parameters
+            "LAI": 3.0,          # Leaf Area Index (m² leaf area per m² ground area)
+            "hc": 2.0,           # Canopy height (m)
+            "LIDFa": -0.35,      # Parameter 'a' for the Leaf Inclination Distribution Function (LIDF)
+            "LIDFb": -0.15,      # Parameter 'b' for the Leaf Inclination Distribution Function (LIDF)
+            "leafwidth": 0.1,    # Average leaf width (m)
+            "Cv": 1.0,           # Canopy clumping index (dimensionless; 1 = no clumping)
+            "crowndiameter": 1.0,# Average crown diameter of trees or vegetation (m)
+
+            # Meteorological (Meteo) conditions
+            "z": 5.0,            # Reference measurement height (m) for meteorological data
+            "Rin": 800.0,        # Incoming shortwave (solar) radiation (W/m²)
+            "Ta": 20.0,          # Air temperature (°C)
+            "Rli": 300.0,        # Incoming longwave radiation (W/m²)
+            "p": 970.0,          # Atmospheric pressure (hPa)
+            "ea": 15.0,          # Actual vapor pressure (hPa)
+            "u": 2.0,            # Wind speed (m/s)
+            "Ca": 410.0,         # Ambient CO₂ concentration (ppm)
+            "Oa": 209.0,         # Ozone amount or related ozone metric (units depend on model)
+
+            # Aerodynamic parameters for surface-atmosphere interactions
+            "zo": 0.25,      # Roughness length (m) for momentum transfer
+            "d": 1.34,       # Zero-plane displacement height (m) for the canopy or surface
+            "Cd": 0.3,       # Drag coefficient (dimensionless)
+            "rb": 10.0,      # Boundary layer resistance (s/m) for aerodynamic calculations
+            "CR": 0.35,      # Canopy resistance factor (dimensionless) affecting evapotranspiration
+            "CD1": 20.6,     # Empirical aerodynamic parameter (could be a scaling constant)
+            "Psicor": 0.2,   # Correction factor for psychrometric calculations (dimensionless)
+            "CSSOIL": 0.01,  # Soil surface conductance parameter (m/s)
+            "rbs": 10.0,     # Additional aerodynamic resistance (s/m)
+            "rwc": 0.0,      # Parameter for water content effect on resistance (if applicable)
+
+            # Timeseries or simulation timing parameters
+            "startDOY": 20060618.0,  # Simulation start date (format could be YYYYMMDD or DOY with epoch)
+            "endDOY": 20300101.0,    # Simulation end date (format could be YYYYMMDD or DOY with epoch)
+            "LAT": 51.55,            # Latitude of the simulation site (degrees)
+            "LON": 5.55,             # Longitude of the simulation site (degrees)
+            "timezn": 1.0,           # Time zone offset (hours) from UTC
+
+            # Angles for radiation and observation geometry
+            "tts": 35.0,     # Solar zenith angle (degrees): angle between the sun and the vertical
+            "tto": 0.0,      # Observation zenith angle (degrees): angle between the sensor line-of-sight and the vertical
+            "psi": 0.0,      # Solar or sensor azimuth angle (degrees): horizontal orientation of the sun or sensor
         }
+
 
     def __enter__(self):
         """Start MATLAB engine and add SCOPE path."""
@@ -552,6 +562,22 @@ class SCOPEWrapperMultiRun:
             writer.writerows(ordered_options)
         
         self.active_setoptions = combined_options
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 class SCOPEWrapper:
     def __init__(self):
