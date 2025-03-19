@@ -26,11 +26,11 @@ class ResidualMLPBlock(nn.Module):
         return out + identity
 
 class SFMNNEncoder(nn.Module):
-    def __init__(self):
+    def __init__(self, spectral_bands):
         super().__init__()
         
         # Input parameters from paper
-        self.spectral_bands = 1024  # FLUO module channels
+        self.spectral_bands = spectral_bands  # FLUO module channels
         self.additional_vars = 3    # Flight height, SZA, across-track position
         self.total_input_dim = self.spectral_bands + self.additional_vars
         
