@@ -2,109 +2,76 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-class DimReduction(nn.Module):
-    """
-    Reduces the input dimensionality from (C) to reduced_dim.
-    Expects input shape (N, C) where N = B * H * W.
-    """
-    def __init__(self, input_dim=1027, reduced_dim=100):
-        super(DimReduction, self).__init__()
-        self.fc = nn.Linear(input_dim, reduced_dim)
-        self.bn = nn.BatchNorm1d(reduced_dim)
-        self.relu = nn.ReLU()
-
-    def forward(self, x):
-        # x shape: [N, input_dim]
-        x = self.fc(x)
-        x = self.bn(x)
-        x = self.relu(x)
-        return x
-
-class ResidualMLPBlock(nn.Module):
-    """
-    A residual block that applies a linear layer with batch normalization,
-    ReLU activation, optional dropout, and a skip connection.
-    """
-    def __init__(self, in_dim, out_dim, dropout=0.0):
-        super(ResidualMLPBlock, self).__init__()
-        self.linear = nn.Linear(in_dim, out_dim)
-        self.bn = nn.BatchNorm1d(out_dim)
-        self.dropout = nn.Dropout(dropout) if dropout > 0 else nn.Identity()
-        self.relu = nn.ReLU()
-        # Adjust the skip connection if the dimensions differ.
-        if in_dim != out_dim:
-            self.skip = nn.Linear(in_dim, out_dim)
-        else:
-            self.skip = nn.Identity()
-
-    def forward(self, x):
-        residual = self.skip(x)
-        out = self.linear(x)
-        out = self.bn(out)
-        out = self.relu(out)
-        out = self.dropout(out)
-        out = out + residual
-        out = self.relu(out)
-        return out
-
-class Encoder(nn.Module):
-    """
-    Encoder module composed of a sequence of residual MLP blocks.
-    According to the paper's Table 4, the encoder (e_in) has:
-      - Stage 1: Three blocks that transform from 100 to 50 channels (dropout=0.1)
-      - Stage 2: Three blocks keeping dimension 50 (dropout=0.0)
-      - Stage 3: One final residual block (dropout=0.0)
-    """
-    def __init__(self):
-        super(Encoder, self).__init__()
-        self.stage1 = nn.Sequential(
-            ResidualMLPBlock(100, 50, dropout=0.1),
-            ResidualMLPBlock(50, 50, dropout=0.1),
-            ResidualMLPBlock(50, 50, dropout=0.1)
-        )
-        self.stage2 = nn.Sequential(
-            ResidualMLPBlock(50, 50, dropout=0.0),
-            ResidualMLPBlock(50, 50, dropout=0.0),
-            ResidualMLPBlock(50, 50, dropout=0.0)
-        )
-        self.stage3 = ResidualMLPBlock(50, 50, dropout=0.0)
-
-    def forward(self, x):
-        # x shape: [N, 100]
-        x = self.stage1(x)
-        x = self.stage2(x)
-        x = self.stage3(x)
-        return x
-
 class SFMNNEncoder(nn.Module):
-    """
-    Complete encoder that works with input patches of shape [B, H, W, C]
-    where C = 1024 (spectral channels) + 3 (extra variables).
-    The network processes each pixel (flattening the H and W dimensions),
-    applies dimensionality reduction and the encoder, and then reshapes
-    the output back to [B, H, W, latent_dim] (latent_dim=50).
-    """
-    def __init__(self, input_dim=1027, reduced_dim=100):
-        super(SFMNNEncoder, self).__init__()
-        self.dim_red = DimReduction(input_dim, reduced_dim)
-        self.encoder = Encoder()
+    def __init__(self,
+                 input_channels=244,  # 241 spectral + 3 metadata
+                 num_variables=9,     # Number of output variables
+                 latent_dim=64):
+        super().__init__()
+        
+        # Architectural parameters from paper's Table 4
+        self.layer_dims = [100, 50, 50]
+        self.layer_repeats = [3, 3, 1]
+        self.dropout_rates = [0.1, 0.1, 0]
+        self.num_variables = num_variables
+        self.latent_dim = latent_dim
+
+        # Input normalization and reduction
+        self.input_norm = nn.BatchNorm1d(input_channels)
+        self.dim_reduction = nn.Linear(input_channels, self.layer_dims[0])
+        
+        # Shared residual blocks
+        self.res_blocks = nn.ModuleList()
+        current_dim = self.layer_dims[0]
+        
+        for dim, repeats, dropout in zip(self.layer_dims, self.layer_repeats, self.dropout_rates):
+            for _ in range(repeats):
+                self.res_blocks.append(
+                    ResidualBlock(current_dim, dim, dropout)
+                )
+                current_dim = dim
+
+        # Final projection to multi-variable latent space
+        self.latent_proj = nn.Linear(current_dim, num_variables * latent_dim)
 
     def forward(self, x):
-        # x shape: [B, H, W, C]
+        """
+        Input: [B, H, W, 244] 
+        Output: [B, H, W, 9, 64] where 9 variables each get 64D latent
+        """
         B, H, W, C = x.shape
-        # Flatten spatial dimensions: [B*H*W, C]
-        x = x.reshape(B * H * W, C)
-        x = self.dim_red(x)  # Shape: [B*H*W, reduced_dim] (e.g., [B*H*W, 100])
-        x = self.encoder(x)  # Shape: [B*H*W, latent_dim] (latent_dim is 50)
-        # Reshape back to spatial layout: [B, H, W, latent_dim]
-        x = x.reshape(B, H, W, -1)
-        return x
+        
+        # Process each pixel independently
+        x_flat = x.reshape(-1, C)  # [B*H*W, 244]
+        
+        # Normalization and reduction
+        x = self.input_norm(x_flat)
+        x = F.relu(self.dim_reduction(x))  # [B*H*W, 100]
+        
+        # Shared residual processing
+        for block in self.res_blocks:
+            x = block(x)  # Final shape [B*H*W, 50]
+            
+        # Project to variable-specific latent space
+        latent = self.latent_proj(x)  # [B*H*W, 9*64]
+        
+        # Reshape to [B, H, W, 9, 64]
+        latent = latent.view(B, H, W, self.num_variables, self.latent_dim)
+        
+        return latent
 
-# Example usage:
-if __name__ == "__main__":
-    # Suppose we have a batch of patches with each patch of shape [H, W, C],
-    # e.g., H = W = 17 and C = 1027 (1024 spectral + 3 extra variables)
-    dummy_input = torch.randn(8, 17, 17, 1027)  # Batch size = 8
-    model = SFMNNEncoder()
-    latent = model(dummy_input)
-    print("Latent representation shape:", latent.shape)  # Expected: [8, 17, 17, 50]
+class ResidualBlock(nn.Module):
+    def __init__(self, in_dim, out_dim, dropout_p=0.1):
+        super().__init__()
+        self.block = nn.Sequential(
+            nn.Linear(in_dim, out_dim),
+            nn.BatchNorm1d(out_dim),
+            nn.ReLU(),
+            nn.Dropout(dropout_p),
+            nn.Linear(out_dim, out_dim),
+            nn.BatchNorm1d(out_dim)
+        )
+        self.shortcut = nn.Linear(in_dim, out_dim) if in_dim != out_dim else nn.Identity()
+        
+    def forward(self, x):
+        return F.relu(self.block(x) + self.shortcut(x))
