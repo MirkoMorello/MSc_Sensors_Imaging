@@ -6,6 +6,7 @@ import torch
 import json
 import glob
 
+#TODO: normalize the data
 class SFMNNDataset(Dataset):
     def __init__(self, 
                  lookup_table, 
@@ -22,8 +23,7 @@ class SFMNNDataset(Dataset):
         # Load lookup table to get wavelengths (used as column names)
         with open(lookup_table) as f:
             lookup_table_data = json.load(f)
-            wl = lookup_table_data["modtran_wavelength"]
-            self.wl = wl  # e.g., list of 1024 wavelengths
+            self.wl = lookup_table_data["modtran_wavelength"]
 
         # Load and process each JSON file
         for file_path in tqdm(glob.glob(data_folder + "simulation_sim*.json"), desc="Loading JSON files"):
@@ -32,7 +32,7 @@ class SFMNNDataset(Dataset):
 
             filename = file_path.split("/")[-1]
 
-            # Assuming filename format: something_something_sim_n_something_amb_c.json
+            # Assuming filename format: simulation_sim_1_amb_0.json
             _, _, sim_n, _, amb_c = filename.split("_")
             # Extract values from JSON structure
             LTOA_value = data['LTOA']  
@@ -46,7 +46,7 @@ class SFMNNDataset(Dataset):
             SZA_list.append(SZA_value)
             GNDALT_list.append(GNDALT_value)
             XTE_list.append(XTE_value)
-            AMBC_list.append(int(amb_c[:-5]))  # Ensure AMBC is an integer
+            AMBC_list.append(int(amb_c[:-5]))  # remove ".json" and convert to int, this is the simulation number
 
         # Build the dataset DataFrame from LTOA values and add extra columns.
         self.dataset = pd.DataFrame(LTOA_list, columns=self.wl)
