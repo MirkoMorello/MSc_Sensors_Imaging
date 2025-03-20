@@ -27,7 +27,6 @@ class FourStreamSimulator(nn.Module):
         Returns:
             L_at_s_hr: High-res simulated radiance [B, n_bands_hr, H, W]
         """
-        B, _, H, W = t_params.shape
         
         # Expand to high-res spectral dimension
         lambda_hr = self.lambda_hr.view(1, -1, 1, 1)  # [1, n_bands_hr, 1, 1]
@@ -127,17 +126,45 @@ class HyPlantSensorSimulator(nn.Module):
         return L_hyp
 
 class SFMNNSimulation(nn.Module):
-    def __init__(self, sensor_wavelengths):
+    def __init__(self, sensor_wavelengths, spectral_window=(750, 770)):
         super().__init__()
-        self.four_stream = FourStreamSimulator()
+        self.four_stream = FourStreamSimulator(spectral_window)
         self.sensor_sim = HyPlantSensorSimulator(sensor_wavelengths)
         
-    def forward(self, t_params, R_params, f_params, E_s, cos_theta_s, 
-               delta_lambda, delta_sigma):
-        # 1. Four-stream simulation
-        L_hr = self.four_stream(t_params, R_params, f_params, E_s, cos_theta_s)
+        # Register physical constants as buffers
+        self.register_buffer('lambda0', torch.tensor(740.0))
+        self.register_buffer('lambda1', torch.tensor(780.0))
+        self.register_buffer('mu_f', torch.tensor(737.0))
+
+    def forward(self, t_params, R_params, f_params, E_s, cos_theta_s, delta_lambda, delta_sigma):
+        """
+        Pure simulation forward pass
+        Args:
+            t_params: Atmospheric parameters [B, 6, H, W]
+            R_params: Reflectance parameters (ρ, s_ρ, e) [B, 3, H, W]
+            f_params: Fluorescence parameters (A_f, σ_f) [B, 2, H, W]
+            E_s: Solar irradiance spectrum [B, n_hr]
+            cos_theta_s: Cosine of solar zenith angle [B]
+            delta_lambda: Wavelength shift [B, H, W] 
+            delta_sigma: SRF width shift [1]
         
-        # 2. Sensor characteristics application
-        L_hyp = self.sensor_sim(L_hr, delta_lambda, delta_sigma)
+        Returns:
+            L_hyp: Simulated HyPlant measurements [B, C, H, W]
+        """
+        # Four-stream simulation
+        L_hr = self.four_stream(
+            t_params=t_params,
+            R_params=R_params,
+            f_params=f_params,
+            E_s=E_s,
+            cos_theta_s=cos_theta_s.view(-1, 1, 1, 1)
+        )
+        
+        # Sensor characteristics application
+        L_hyp = self.sensor_sim(
+            L_at_s_hr=L_hr,
+            delta_lambda=delta_lambda,
+            delta_sigma=delta_sigma
+        )
         
         return L_hyp
