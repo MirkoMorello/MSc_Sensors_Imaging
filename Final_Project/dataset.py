@@ -26,12 +26,11 @@ class SFMNNDataset(Dataset):
             self.wl = wl  # e.g., list of 1024 wavelengths
 
         # Load and process each JSON file
-        for file_path in tqdm(glob.glob(data_folder + "*.json"), desc="Loading JSON files"):
+        for file_path in tqdm(glob.glob(data_folder + "simulation_sim*.json"), desc="Loading JSON files"):
             with open(file_path, "r") as f:
                 data = json.load(f)
 
             filename = file_path.split("/")[-1]
-            print(f"Reading file {filename}")
 
             # Assuming filename format: something_something_sim_n_something_amb_c.json
             _, _, sim_n, _, amb_c = filename.split("_")
