@@ -1,31 +1,6 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-
-class FourStreamSimulator(nn.Module):
-    def __init__(self, spectral_window=(750, 770), high_res=0.0055):
-        super().__init__()
-        self.register_buffer('lambda_hr', torch.arange(*spectral_window, high_res))
-        self.mu_f = 737.0  # Fluorescence peak wavelength
-
-    def forward(self, t1, t2, t3, t4, t5, t6, R, F, E_s, cos_theta_s):
-        """
-        Paper Eq.2 implementation with explicit parameters
-        Input shapes:
-        - t1-t6: [B, H, W] 
-        - R: [B, C_hr, H, W] (reflectance spectrum)
-        - F: [B, C_hr, H, W] (fluorescence spectrum)
-        - E_s: [B, C_hr] (solar irradiance)
-        - cos_theta_s: [B]
-        """
-
-        print(f"t1: {t1.shape}")
-        print(f"t2: {t2.shape}")
-        print(f"t3: {t3.shape}")
-        print(f"t4: {t4.shape}")
-        print(f"t5: {t5.shape}")import torch
-import torch.nn as nn
-import torch.nn.functional as F
 from tqdm import tqdm
 
 # --- FourStreamSimulator ---
@@ -112,20 +87,6 @@ class SFMNNSimulation(nn.Module):
         # Apply sensor simulation
         L_hyp = self.sensor_sim(L_hr, delta_lambda, delta_sigma)
         return L_hyp
-        print(f"t6: {t6.shape}")
-        print(f"R: {R.shape}")
-        print(f"F: {F.shape}")
-
-        # Compute product terms from Table 3
-        t7 = t3 * t4
-        t8 = t3 * t6
-        t9 = t4 * t5
-        t10 = t4 * t2
-        t11 = t3 * t2
-        
-        LTOA = t1 * t2 + (t1 * t8 * R + t9 * R + t10 * R + t11 * R + t6 * F + t7 * F) / (1 - t3 * R)
-
-        return LTOA
 
 class HyPlantSensorSimulator(nn.Module):
     def __init__(self, sensor_wavelengths, high_res=0.0055):
