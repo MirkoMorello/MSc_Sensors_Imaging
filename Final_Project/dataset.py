@@ -7,77 +7,115 @@ import numpy as np
 import json
 import glob
 from tqdm import tqdm
+import os
 
-# -------------------------
-# Modified Dataset
-# -------------------------
+import logging
+
+logging.basicConfig(level=logging.INFO,
+                    format="%(asctime)s [%(levelname)s] %(message)s",
+                    handlers=[logging.StreamHandler()])
+logger = logging.getLogger(__name__)
+
 class SFMNNDataset(Dataset):
     def __init__(self, lookup_table, data_folder, patch_size=5):
+        """
+        Loads simulation JSON files and constructs a dataframe.
+        For each simulation, we load LTOA, XTE, SZA, GNDALT, and Esun.
+        Only LTOA, XTE, SZA, and GNDALT (i.e. num_wavelengths+3 channels)
+        are used as network input. Esun is used only to compute a fixed Esun.
+        """
         self.patch_size = patch_size  # Each patch is patch_size x patch_size
+
         # Temporary lists to collect data from JSON files
         LTOA_list = []  
         XTE_list = []   
         SZA_list = []   
         GNDALT_list = [] 
+        Esun_list = []  # For later computing fixed Esun
         AMBC_list = []   
 
         # Load lookup table to get wavelengths (used as column names)
         with open(lookup_table) as f:
             lookup_table_data = json.load(f)
-            self.wl = lookup_table_data["modtran_wavelength"]  # Expect length = 3620
+            self.wl = lookup_table_data["modtran_wavelength"]
+        # If the lookup table contains only a range, generate full grid with 3620 points.
+        if len(self.wl) < 100:
+            logger.warning("Lookup table wavelengths appear to be a range. Generating full wavelength grid.")
+            self.wl = np.linspace(self.wl[0], self.wl[1], 3620)
+        else:
+            self.wl = np.array(self.wl)
+        logger.info(f"Using {len(self.wl)} wavelength channels.")
 
-        # Load and process each JSON file
-        for file_path in tqdm(glob.glob(data_folder + "simulation_sim*.json"), desc="Loading JSON files"):
+        sim_files = glob.glob(os.path.join(data_folder, "simulation_sim*.json"))
+        logger.info(f"Found {len(sim_files)} simulation JSON files.")
+        for file_path in tqdm(sim_files, desc="Loading JSON files"):
             with open(file_path, "r") as f:
                 data = json.load(f)
 
-            filename = file_path.split("/")[-1]
+            filename = os.path.basename(file_path)
             # Assuming filename format: simulation_sim_1_amb_0.json
-            _, _, sim_n, _, amb_c = filename.split("_")
-            # Extract values from JSON structure
+            try:
+                _, _, sim_n, _, amb_c = filename.split("_")
+            except Exception as e:
+                logger.error(f"Filename {filename} parsing error: {e}")
+                continue
+
+            # Extract values from JSON structure.
             LTOA_value = data['LTOA']  
             SZA_value = data['MODTRAN_settings']['ATM']['SZA']
             GNDALT_value = data['MODTRAN_settings']['ATM']['GNDALT']
             VZA_value = data['MODTRAN_settings']['ATM']['VZA']
-            XTE_value = np.tan(VZA_value) * GNDALT_value
+            # Compute horizontal extent.
+            XTE_value = np.tan(np.deg2rad(VZA_value)) * GNDALT_value
+            # Extract Esun; if missing, default to 1.0.
+            Esun_value = data.get("Esun", None)
+            if Esun_value is None:
+                logger.warning(f"File {filename} missing 'Esun'; using default value 1.0.")
+                Esun_value = 1.0
 
             LTOA_list.append(LTOA_value)
             SZA_list.append(SZA_value)
             GNDALT_list.append(GNDALT_value)
             XTE_list.append(XTE_value)
-            AMBC_list.append(int(amb_c[:-5]))  # remove ".json" and convert to int
+            Esun_list.append(Esun_value)
+            try:
+                amb_val = int(amb_c.split(".")[0])
+            except:
+                amb_val = 0
+            AMBC_list.append(amb_val)
 
-        # Build the dataset DataFrame from LTOA values and add extra columns.
+        # Build dataframe.
         self.dataset = pd.DataFrame(LTOA_list, columns=self.wl)
         self.dataset['XTE'] = XTE_list
         self.dataset['SZA'] = SZA_list
         self.dataset['GNDALT'] = GNDALT_list
+        self.dataset['Esun'] = Esun_list
         self.dataset['AMBC'] = AMBC_list
+
+        # Compute fixed Esun as the mean over all Esun values.
+        self.fixed_esun = np.mean(Esun_list)
+        logger.info(f"Fixed Esun computed as: {self.fixed_esun:.4f}")
 
         self._resample_patches()
         self._reset_retrieval_markers()
         
-        print(f"Total number of elements loaded: {len(self.dataset)}")
-        print(f"Total number of patches loaded: {len(self.patches)}")
+        logger.info(f"Total simulations loaded: {len(self.dataset)}")
+        logger.info(f"Total patches loaded: {len(self.patches)}")
 
     def _compute_tensor_patch(self, patch, num_wl):
         """
         Convert a patch (DataFrame) into a tensor of shape [patch_size, patch_size, num_wl+3],
         where:
-          - The first num_wl channels correspond to the LTOA spectral signal.
-          - The last three channels correspond to XTE, SZA, and GNDALT.
+          - The first num_wl channels are the LTOA spectral signal.
+          - The next three channels are XTE, SZA, and GNDALT.
+        Esun is not included.
         """
         patch_elem_count = self.patch_size ** 2
-        # LTOA: shape (patch_elem_count, num_wl)
-        ltoa = patch[self.wl].values  # shape: (patch_elem_count, num_wl)
-        ltoa = ltoa.reshape(self.patch_size, self.patch_size, num_wl)
-
+        ltoa = patch[self.wl].values.reshape(self.patch_size, self.patch_size, num_wl)
         xte = patch['XTE'].values.reshape(self.patch_size, self.patch_size, 1)
         sza = patch['SZA'].values.reshape(self.patch_size, self.patch_size, 1)
         gndalt = patch['GNDALT'].values.reshape(self.patch_size, self.patch_size, 1)
-
         patch_tensor = np.concatenate([ltoa, xte, sza, gndalt], axis=-1)
-        # Return as a tensor of shape [H, W, C]
         return torch.tensor(patch_tensor, dtype=torch.float)
 
     def _resample_patches(self):
@@ -112,12 +150,11 @@ class SFMNNDataset(Dataset):
         return len(self.patches)
     
     def __getitem__(self, idx):
-        if idx >= len(self.patches) or idx < 0:
+        if idx < 0 or idx >= len(self.patches):
             raise IndexError("Index out of range")
         self._retrieved[idx] = True
-        tensor_patch = self.patches[idx]  # shape: [patch_size, patch_size, num_wl+3]
-        # Permute to [C, H, W] for easier use later.
-        tensor_patch = tensor_patch.permute(2, 0, 1)
+        # Permute to [C, H, W]
+        tensor_patch = self.patches[idx].permute(2, 0, 1)
         if all(self._retrieved):
             self._resample_patches()
             self._reset_retrieval_markers()
