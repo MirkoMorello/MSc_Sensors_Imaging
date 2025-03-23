@@ -23,8 +23,6 @@ class SCOPEWrapperMultiRun:
         self.active_setoptions = self._get_default_setoptions()
         self.scalar_files = scalar_files
         self.spectral_files = spectral_files
-        
-
 
     def _get_default_setoptions(self):
         """Loads default setoptions from setoptions.csv"""
@@ -37,7 +35,6 @@ class SCOPEWrapperMultiRun:
                     key = row[0].strip()
                     value = row[1].strip()
                     try:
-                        
                         value = int(value)
                     except ValueError:
                         pass 
@@ -48,96 +45,86 @@ class SCOPEWrapperMultiRun:
         """Comprehensive default parameters for SCOPE."""
         return {
             # PROSPECT leaf optical properties
-            "Cab": 40.0,          # Chlorophyll a+b content (µg/cm²)
-            "Cca": 10.0,          # Carotenoid content (µg/cm²)
-            "Cdm": 0.012,         # Dry matter content (g/cm²)
-            "Cw": 0.009,          # Equivalent water thickness (cm)
-            "Cs": 0.0,            # Structure coefficient (non-pigment absorbing contents)
-            "Cant": 1.0,          # Anthocyanin content (relative units)
-            "Cp": 0.0,            # Additional pigment content (if applicable)
-            "Cbc": 0.0,           # Brown pigment content (if applicable)
-            "N": 1.5,             # Leaf structure parameter (number of effective layers)
-            "rho_thermal": 0.01,  # Thermal reflectance factor
-            "tau_thermal": 0.01,  # Thermal transmittance factor
-
+            "Cab": 40.0,
+            "Cca": 10.0,
+            "Cdm": 0.012,
+            "Cw": 0.009,
+            "Cs": 0.0,
+            "Cant": 1.0,
+            "Cp": 0.0,
+            "Cbc": 0.0,
+            "N": 1.5,
+            "rho_thermal": 0.01,
+            "tau_thermal": 0.01,
             # Leaf Biochemical parameters
-            "Vcmax25": 60.0,         # Maximum carboxylation rate at 25°C (µmol m⁻² s⁻¹)
-            "BallBerrySlope": 8.0,   # Slope parameter for the Ball-Berry stomatal conductance model
-            "BallBerry0": 0.01,      # Intercept parameter for the Ball-Berry model
-            "Type": 0.0,             # Indicator for leaf biochemical type or model variant
-            "kV": 0.64,              # Rate constant related to photosynthetic capacity
-            "Rdparam": 0.015,        # Leaf dark respiration rate parameter (µmol m⁻² s⁻¹)
-            "Kn0": 2.48,             # Parameter for nitrogen limitation or related biochemical process
-            "Knalpha": 2.83,         # Scaling factor (alpha) in the nitrogen limitation model
-            "Knbeta": 0.114,         # Scaling factor (beta) in the nitrogen limitation model
-
-            # Magnani model parameters (canopy biochemistry/structure)
-            "Tyear": 15.0,       # Mean annual temperature used in the Magnani model (°C)
-            "beta": 0.51,        # Scaling parameter in the Magnani model for canopy processes
-            "kNPQs": 0.0,        # Parameter related to non-photochemical quenching in the canopy
-            "qLs": 1.0,          # Leaf-level parameter (e.g., efficiency or scaling factor) in the Magnani model
-            "stressfactor": 1.0, # Factor to account for environmental stress effects on leaves
-
+            "Vcmax25": 60.0,
+            "BallBerrySlope": 8.0,
+            "BallBerry0": 0.01,
+            "Type": 0.0,
+            "kV": 0.64,
+            "Rdparam": 0.015,
+            "Kn0": 2.48,
+            "Knalpha": 2.83,
+            "Knbeta": 0.114,
+            # Magnani model parameters
+            "Tyear": 15.0,
+            "beta": 0.51,
+            "kNPQs": 0.0,
+            "qLs": 1.0,
+            "stressfactor": 1.0,
             # Fluorescence module
-            "fqe": 0.01,         # Fluorescence quantum efficiency (fraction of absorbed light re-emitted as fluorescence)
-
+            "fqe": 0.01,
             # Soil properties
-            "spectrum": 1.0,     # Indicator for soil spectral signature or scaling of soil reflectance
-            "rss": 500.0,        # Soil surface roughness or reflectance scaling parameter
-            "rs_thermal": 0.06,  # Soil thermal reflectance factor
-            "cs": 1180.0,        # Soil heat capacity or specific heat (J/m²K) [context-dependent]
-            "rhos": 1800.0,      # Soil bulk density (kg/m³)
-            "lambdas": 1.55,     # Soil thermal conductivity (W/mK)
-            "SMC": 25.0,         # Soil moisture content (percentage or volumetric, depending on the model)
-            "BSMBrightness": 0.5,# Soil brightness parameter for the Bare Soil Model (BSM)
-            "BSMlat": 25.0,      # Latitude value used in the BSM calibration (degrees)
-            "BSMlon": 45.0,      # Longitude value used in the BSM calibration (degrees)
-
+            "spectrum": 1.0,
+            "rss": 500.0,
+            "rs_thermal": 0.06,
+            "cs": 1180.0,
+            "rhos": 1800.0,
+            "lambdas": 1.55,
+            "SMC": 25.0,
+            "BSMBrightness": 0.5,
+            "BSMlat": 25.0,
+            "BSMlon": 45.0,
             # Canopy structure parameters
-            "LAI": 3.0,          # Leaf Area Index (m² leaf area per m² ground area)
-            "hc": 2.0,           # Canopy height (m)
-            "LIDFa": -0.35,      # Parameter 'a' for the Leaf Inclination Distribution Function (LIDF)
-            "LIDFb": -0.15,      # Parameter 'b' for the Leaf Inclination Distribution Function (LIDF)
-            "leafwidth": 0.1,    # Average leaf width (m)
-            "Cv": 1.0,           # Canopy clumping index (dimensionless; 1 = no clumping)
-            "crowndiameter": 1.0,# Average crown diameter of trees or vegetation (m)
-
+            "LAI": 3.0,
+            "hc": 2.0,
+            "LIDFa": -0.35,
+            "LIDFb": -0.15,
+            "leafwidth": 0.1,
+            "Cv": 1.0,
+            "crowndiameter": 1.0,
             # Meteorological (Meteo) conditions
-            "z": 5.0,            # Reference measurement height (m) for meteorological data
-            "Rin": 800.0,        # Incoming shortwave (solar) radiation (W/m²)
-            "Ta": 20.0,          # Air temperature (°C)
-            "Rli": 300.0,        # Incoming longwave radiation (W/m²)
-            "p": 970.0,          # Atmospheric pressure (hPa)
-            "ea": 15.0,          # Actual vapor pressure (hPa)
-            "u": 2.0,            # Wind speed (m/s)
-            "Ca": 410.0,         # Ambient CO₂ concentration (ppm)
-            "Oa": 209.0,         # Ozone amount or related ozone metric (units depend on model)
-
-            # Aerodynamic parameters for surface-atmosphere interactions
-            "zo": 0.25,      # Roughness length (m) for momentum transfer
-            "d": 1.34,       # Zero-plane displacement height (m) for the canopy or surface
-            "Cd": 0.3,       # Drag coefficient (dimensionless)
-            "rb": 10.0,      # Boundary layer resistance (s/m) for aerodynamic calculations
-            "CR": 0.35,      # Canopy resistance factor (dimensionless) affecting evapotranspiration
-            "CD1": 20.6,     # Empirical aerodynamic parameter (could be a scaling constant)
-            "Psicor": 0.2,   # Correction factor for psychrometric calculations (dimensionless)
-            "CSSOIL": 0.01,  # Soil surface conductance parameter (m/s)
-            "rbs": 10.0,     # Additional aerodynamic resistance (s/m)
-            "rwc": 0.0,      # Parameter for water content effect on resistance (if applicable)
-
-            # Timeseries or simulation timing parameters
-            "startDOY": 20060618.0,  # Simulation start date (format could be YYYYMMDD or DOY with epoch)
-            "endDOY": 20300101.0,    # Simulation end date (format could be YYYYMMDD or DOY with epoch)
-            "LAT": 51.55,            # Latitude of the simulation site (degrees)
-            "LON": 5.55,             # Longitude of the simulation site (degrees)
-            "timezn": 1.0,           # Time zone offset (hours) from UTC
-
-            # Angles for radiation and observation geometry
-            "tts": 35.0,     # Solar zenith angle (degrees): angle between the sun and the vertical
-            "tto": 0.0,      # Observation zenith angle (degrees): angle between the sensor line-of-sight and the vertical
-            "psi": 0.0,      # Solar or sensor azimuth angle (degrees): horizontal orientation of the sun or sensor
+            "z": 5.0,
+            "Rin": 800.0,
+            "Ta": 20.0,
+            "Rli": 300.0,
+            "p": 970.0,
+            "ea": 15.0,
+            "u": 2.0,
+            "Ca": 410.0,
+            "Oa": 209.0,
+            # Aerodynamic parameters
+            "zo": 0.25,
+            "d": 1.34,
+            "Cd": 0.3,
+            "rb": 10.0,
+            "CR": 0.35,
+            "CD1": 20.6,
+            "Psicor": 0.2,
+            "CSSOIL": 0.01,
+            "rbs": 10.0,
+            "rwc": 0.0,
+            # Timeseries parameters
+            "startDOY": 20060618.0,
+            "endDOY": 20300101.0,
+            "LAT": 51.55,
+            "LON": 5.55,
+            "timezn": 1.0,
+            # Angles
+            "tts": 35.0,
+            "tto": 0.0,
+            "psi": 0.0,
         }
-
 
     def __enter__(self):
         """Start MATLAB engine and add SCOPE path."""
@@ -150,7 +137,6 @@ class SCOPEWrapperMultiRun:
         """Stop MATLAB engine and restore input file."""
         if self.eng:
             self.eng.quit()
-
         if hasattr(self, "temp_backup") and self.temp_backup.exists():
             try:
                 if self.original_input.exists():
@@ -164,15 +150,11 @@ class SCOPEWrapperMultiRun:
         input_dir = self.scope_dir / "input"
         input_dir.mkdir(parents=True, exist_ok=True)
         temp_file = input_dir / "input_data.csv"
-
-        # Backup original file if it exists
         if self.original_input.exists():
             self.temp_backup = self.original_input.with_name("input_data.backup.csv")
             if self.temp_backup.exists():
                 os.remove(str(self.temp_backup))
             shutil.move(str(self.original_input), str(self.temp_backup))
-
-        # Write new content
         with open(temp_file, "w") as f:
             f.write(csv_content)
         return temp_file
@@ -180,90 +162,25 @@ class SCOPEWrapperMultiRun:
     def _generate_csv_content(self, params):
         """Generate CSV content with parameters in SCOPE's expected row-based format"""
         sections = [
-            (
-                "PROSPECT",
-                [
-                    "Cab",
-                    "Cca",
-                    "Cdm",
-                    "Cw",
-                    "Cs",
-                    "Cant",
-                    "Cp",
-                    "Cbc",
-                    "N",
-                    "rho_thermal",
-                    "tau_thermal",
-                ],
-            ),
-            (
-                "Leaf_Biochemical",
-                [
-                    "Vcmax25",
-                    "BallBerrySlope",
-                    "BallBerry0",
-                    "Type",
-                    "kV",
-                    "Rdparam",
-                    "Kn0",
-                    "Knalpha",
-                    "Knbeta",
-                ],
-            ),
-            (
-                "Leaf_Biochemical_magnani",
-                ["Tyear", "beta", "kNPQs", "qLs", "stressfactor"],
-            ),
+            ("PROSPECT", ["Cab", "Cca", "Cdm", "Cw", "Cs", "Cant", "Cp", "Cbc", "N", "rho_thermal", "tau_thermal"]),
+            ("Leaf_Biochemical", ["Vcmax25", "BallBerrySlope", "BallBerry0", "Type", "kV", "Rdparam", "Kn0", "Knalpha", "Knbeta"]),
+            ("Leaf_Biochemical_magnani", ["Tyear", "beta", "kNPQs", "qLs", "stressfactor"]),
             ("Fluorescence", ["fqe"]),
-            (
-                "Soil",
-                [
-                    "spectrum",
-                    "rss",
-                    "rs_thermal",
-                    "cs",
-                    "rhos",
-                    "lambdas",
-                    "SMC",
-                    "BSMBrightness",
-                    "BSMlat",
-                    "BSMlon",
-                ],
-            ),
-            (
-                "Canopy",
-                ["LAI", "hc", "LIDFa", "LIDFb", "leafwidth", "Cv", "crowndiameter"],
-            ),
+            ("Soil", ["spectrum", "rss", "rs_thermal", "cs", "rhos", "lambdas", "SMC", "BSMBrightness", "BSMlat", "BSMlon"]),
+            ("Canopy", ["LAI", "hc", "LIDFa", "LIDFb", "leafwidth", "Cv", "crowndiameter"]),
             ("Meteo", ["z", "Rin", "Ta", "Rli", "p", "ea", "u", "Ca", "Oa"]),
-            (
-                "Aerodynamic",
-                [
-                    "zo",
-                    "d",
-                    "Cd",
-                    "rb",
-                    "CR",
-                    "CD1",
-                    "Psicor",
-                    "CSSOIL",
-                    "rbs",
-                    "rwc",
-                ],
-            ),
+            ("Aerodynamic", ["zo", "d", "Cd", "rb", "CR", "CD1", "Psicor", "CSSOIL", "rbs", "rwc"]),
             ("timeseries", ["startDOY", "endDOY", "LAT", "LON", "timezn"]),
             ("Angles", ["tts", "tto", "psi"]),
         ]
-
         lines = []
         self.structured_params = defaultdict(dict)
-        
         for section_name, param_names in sections:
             lines.append(f"{section_name},")
             for param in param_names:
                 val = params.get(param, self.default_params.get(param, 0.0))
                 if not isinstance(val, (list, tuple)):
                     val = [val]
-                # Store with section key (e.g., "PROSPECT.Cab": [30,40,50])
                 self.structured_params[section_name][param] = val
                 line = f"{param}," + ",".join(map(str, val))
                 lines.append(line)
@@ -275,16 +192,12 @@ class SCOPEWrapperMultiRun:
         output_parent = self.scope_dir / "output"
         if not output_parent.exists():
             raise FileNotFoundError(f"Output directory {output_parent} not found.")
-
         runs = list(output_parent.glob("scope_data_*"))
         if not runs:
             raise FileNotFoundError("No SCOPE output directories found.")
-
-        # Debugging: Print found directories
         print("Found output directories:")
         for run in runs:
             print(f" - {run.name}")
-
         latest_run = max(runs, key=os.path.getmtime)
         print(f"Selected latest output: {latest_run}")
         return latest_run
@@ -293,46 +206,34 @@ class SCOPEWrapperMultiRun:
         """Reads numerical data from CSV, TXT, or BIN files."""
         if filepath.suffix.lower() == ".csv":
             try:
-                # All spectral files: no headers, skip comments
                 if any(x in filepath.name for x in ["spectrum", "Esun", "Esky", "Eout", "fluorescence", "sigmaF"]):
                     df = pd.read_csv(filepath, sep=",", header=None, comment='#')
-                    # Convert to list of lists, where each sublist is one simulation's spectrum
-                    return df.values.tolist()  # Now returns [n_simulations, n_wavelengths]
-                # Scalar files: handle headers and comments
+                    return df.values.tolist()
                 else:
                     df = pd.read_csv(filepath, sep=",", header=0, comment='#')
                     return df.values.tolist()
             except Exception as e:
                 print(f"Error reading {filepath}: {e}")
                 return None
-
         elif filepath.suffix.lower() == ".txt":
             with open(filepath, "r") as f:
-                # Special handling for wavelength files
                 if filepath.name in ["wlS.txt", "wlF.txt"]:
-                    # Read all values into a single flat list
                     values = []
                     for line in f:
                         line_values = [float(v) for v in line.strip().split()]
                         values.extend(line_values)
-                    return [values]  # Wrap in list to match other formats
-                
-                # Regular TXT file handling
-                return [[float(value) for value in re.split(r'\s+', line.strip())] 
-                       for line in f]
-            
+                    return [values]
+                return [[float(value) for value in re.split(r'\s+', line.strip())] for line in f]
         elif filepath.suffix.lower() == ".bin":
             try:
                 with open(filepath, "rb") as f:
-                    # Assuming 4-byte floats (float32)
                     buffer = f.read()
                     num_floats = len(buffer) // 4
                     data = struct.unpack(f"{num_floats}f", buffer)
-                    return [list(data)] #Consistent output
+                    return [list(data)]
             except Exception as e:
                 print(f"Error reading BIN file {filepath}: {e}")
                 return None
-
         else:
             print(f"Unsupported file type: {filepath.suffix}")
             return None
@@ -365,10 +266,7 @@ class SCOPEWrapperMultiRun:
                                     converted_values.append(float(val))
                                 except ValueError:
                                     converted_values.append(val)
-                            if len(converted_values) == 1:
-                                param_value = converted_values[0]
-                            else:
-                                param_value = converted_values
+                            param_value = converted_values[0] if len(converted_values) == 1 else converted_values
                             key = f"{current_section}.{param_name}"
                             params[key] = param_value
         elif filepath.suffix.lower() == ".txt":
@@ -382,21 +280,16 @@ class SCOPEWrapperMultiRun:
     def generate_results_json(self, output_dir: Path) -> Path:
         """Generate results.json with properly formatted parameters."""
         results = {"scalar_outputs": {}}
-        
         param_mapping = {}
         for section, params in self.structured_params.items():
             for param in params.keys():
                 param_mapping[param] = f"{section}.{param}"
-
         param_file = output_dir / "pars_and_input_short.csv"
         if param_file.exists():
             param_df = pd.read_csv(param_file, comment='#')
-            
             param_df = param_df.loc[:, ~param_df.columns.str.contains('^Unnamed')]
             param_df = param_df.drop(columns=['n_pars'], errors='ignore')
-            
             param_df = param_df.rename(columns=param_mapping)
-            
             run_parameters = []
             for _, row in param_df.iterrows():
                 param_dict = {}
@@ -406,17 +299,14 @@ class SCOPEWrapperMultiRun:
                     except (ValueError, TypeError):
                         param_dict[col] = row[col]
                 run_parameters.append(param_dict)
-            
             fixed_params = {
-                f"{section}.{param}": vals[0]  # Get scalar value
+                f"{section}.{param}": vals[0]
                 for section, params in self.structured_params.items()
                 for param, vals in params.items()
                 if f"{section}.{param}" not in param_df.columns
             }
-            
             for param_dict in run_parameters:
                 param_dict.update(fixed_params)
-            
             results.update({
                 "run_parameters": run_parameters,
                 "num_simulations": len(run_parameters),
@@ -429,7 +319,6 @@ class SCOPEWrapperMultiRun:
                 "input_parameters": self.structured_params,
                 "setoptions": self.active_setoptions
             })
-
         results["scalar_outputs"] = {}
         for key, filename in self.scalar_files.items():
             filepath = output_dir / filename
@@ -437,31 +326,22 @@ class SCOPEWrapperMultiRun:
                 data = self._read_data(filepath)
                 if data is not None:
                     results["scalar_outputs"][key] = data
-
-        if self.setoptions.get("saveCSV", 1) == 0:  # Default to 1 if not present.
-            bin_files = {
-                "Rin": "Rin.bin",
-                "Rli": "Rli.bin",
-                "fluorescence_bin": "fluorescence.bin",  
-            }
+        if self.setoptions.get("saveCSV", 1) == 0:
+            bin_files = {"Rin": "Rin.bin", "Rli": "Rli.bin", "fluorescence_bin": "fluorescence.bin"}
             for key, filename in bin_files.items():
                 filepath = output_dir / filename
                 if filepath.exists():
                     data = self._read_data(filepath)
                     if data is not None:
                         results["scalar_outputs"][key] = data
-
-        # Process Parameters directory, skip filenames
         params_dir = output_dir / "Parameters"
         if params_dir.exists() and params_dir.is_dir():
             for param_file in params_dir.glob("*"):
                 if param_file.is_file():
-                    # Skip filenames files
                     if param_file.name.startswith("filenames"):
                         continue
                     params = self._read_parameters(param_file)
                     results.setdefault("model_parameters", {}).update(params)
-
         results["spectral_outputs"] = {}
         for key, filename in self.spectral_files.items():
             filepath = output_dir / filename
@@ -469,51 +349,133 @@ class SCOPEWrapperMultiRun:
                 data = self._read_data(filepath)
                 if data is not None:
                     results["spectral_outputs"][key] = data
-
-
-
-        # Add wlF and wlS
         wlf_file = output_dir / "wlF.txt"
         wls_file = output_dir / "wlS.txt"
         if wlf_file.exists():
             results["wlF"] = self._read_data(wlf_file)
         if wls_file.exists():
             results["wlS"] = self._read_data(wls_file)
-
-
-
         json_path = output_dir / "results.json"
         with open(json_path, "w") as f:
             json.dump(results, f, indent=2)
-
         return json_path
 
-    def run(self, params, setoptions=None):
-        """Run SCOPE, return results.json path.  Includes debugging prints."""
+    def generate_results_parquet(self, output_dir: Path) -> Path:
+        """
+        Generate a Parquet file from the results dictionary.
+        This can significantly reduce file size for numerical data.
+        """
+        # First, generate the results dictionary (same as for JSON).
+        results = {"scalar_outputs": {}}
+        param_mapping = {}
+        for section, params in self.structured_params.items():
+            for param in params.keys():
+                param_mapping[param] = f"{section}.{param}"
+        param_file = output_dir / "pars_and_input_short.csv"
+        if param_file.exists():
+            param_df = pd.read_csv(param_file, comment='#')
+            param_df = param_df.loc[:, ~param_df.columns.str.contains('^Unnamed')]
+            param_df = param_df.drop(columns=['n_pars'], errors='ignore')
+            param_df = param_df.rename(columns=param_mapping)
+            run_parameters = []
+            for _, row in param_df.iterrows():
+                param_dict = {}
+                for col in param_df.columns:
+                    try:
+                        param_dict[col] = float(row[col])
+                    except (ValueError, TypeError):
+                        param_dict[col] = row[col]
+                run_parameters.append(param_dict)
+            fixed_params = {
+                f"{section}.{param}": vals[0]
+                for section, params in self.structured_params.items()
+                for param, vals in params.items()
+                if f"{section}.{param}" not in param_df.columns
+            }
+            for param_dict in run_parameters:
+                param_dict.update(fixed_params)
+            results.update({
+                "run_parameters": run_parameters,
+                "num_simulations": len(run_parameters),
+                "input_parameters": self.structured_params,
+                "setoptions": self.active_setoptions
+            })
+        else:
+            results.update({
+                "num_simulations": 0,
+                "input_parameters": self.structured_params,
+                "setoptions": self.active_setoptions
+            })
+        results["scalar_outputs"] = {}
+        for key, filename in self.scalar_files.items():
+            filepath = output_dir / filename
+            if filepath.exists():
+                data = self._read_data(filepath)
+                if data is not None:
+                    results["scalar_outputs"][key] = data
+        if self.setoptions.get("saveCSV", 1) == 0:
+            bin_files = {"Rin": "Rin.bin", "Rli": "Rli.bin", "fluorescence_bin": "fluorescence.bin"}
+            for key, filename in bin_files.items():
+                filepath = output_dir / filename
+                if filepath.exists():
+                    data = self._read_data(filepath)
+                    if data is not None:
+                        results["scalar_outputs"][key] = data
+        params_dir = output_dir / "Parameters"
+        if params_dir.exists() and params_dir.is_dir():
+            for param_file in params_dir.glob("*"):
+                if param_file.is_file():
+                    if param_file.name.startswith("filenames"):
+                        continue
+                    params = self._read_parameters(param_file)
+                    results.setdefault("model_parameters", {}).update(params)
+        results["spectral_outputs"] = {}
+        for key, filename in self.spectral_files.items():
+            filepath = output_dir / filename
+            if filepath.exists():
+                data = self._read_data(filepath)
+                if data is not None:
+                    results["spectral_outputs"][key] = data
+        wlf_file = output_dir / "wlF.txt"
+        wls_file = output_dir / "wlS.txt"
+        if wlf_file.exists():
+            results["wlF"] = self._read_data(wlf_file)
+        if wls_file.exists():
+            results["wlS"] = self._read_data(wls_file)
+        # Flatten the dictionary using json_normalize.
+        df = pd.json_normalize(results, sep="_")
+        parquet_path = output_dir / "results.parquet"
+        df.to_parquet(parquet_path, index=False)
+        return parquet_path
 
+    def run(self, params, setoptions=None, save_parquet=False):
+        """
+        Run SCOPE, and return the path to the results file.
+        If save_parquet is True, the JSON file is deleted and only the Parquet file is returned.
+        """
         try:
             if setoptions:
-                self._update_setoptions(setoptions)  # Update setoptions.csv
-            # Debugging: Print parameters before CSV generation
+                self._update_setoptions(setoptions)
             print("=== Parameters before CSV generation ===")
             print(json.dumps(params, indent=2))
-
-            # Prepare and write input data
             csv_content = self._generate_csv_content(params)
             print("\n=== Generated CSV Content ===")
-            print(csv_content)  # Print the generated CSV content
-
+            print(csv_content)
             input_file = self._prepare_input(csv_content)
-
-            # Run SCOPE
             self.eng.run_scope_wrapper_json(nargout=0)
-
-            # Find output and generate results.json
             output_dir = self._find_latest_output()
-            json_path = self.generate_results_json(output_dir)
-
-            return json_path
-
+            if save_parquet:
+                # Remove JSON file if it exists
+                json_path = output_dir / "results.json"
+                if json_path.exists():
+                    json_path.unlink()
+                parquet_path = self.generate_results_parquet(output_dir)
+                print(f"Results saved in Parquet format at: {parquet_path}")
+                return parquet_path
+            else:
+                json_path = self.generate_results_json(output_dir)
+                print(f"Results saved in JSON format at: {json_path}")
+                return json_path
         except matlab.engine.MatlabExecutionError as e:
             print(f"MATLAB Error: {str(e)}")
             raise
@@ -526,7 +488,6 @@ class SCOPEWrapperMultiRun:
 
     def _update_setoptions(self, user_options):
         """Update setoptions while maintaining SCOPE's order and user values."""
-        # Define required order of keys (without hardcoding values)
         required_keys = [
             "lite",
             "calc_fluor",
@@ -546,21 +507,15 @@ class SCOPEWrapperMultiRun:
             "MoninObukhov",
             "save_spectral"
         ]
-
-        # Merge user options with defaults, prioritizing user values
         combined_options = {**self.active_setoptions, **user_options}
-        
-        # Build ordered list using required key order
         ordered_options = []
         for key in required_keys:
-            value = combined_options.get(key, 0)  # Default to 0 if not provided
+            value = combined_options.get(key, 0)
             ordered_options.append((str(value), key))
-
         setoptions_path = self.scope_dir / "input" / "setoptions.csv"
         with open(setoptions_path, "w", newline="") as f:
             writer = csv.writer(f)
             writer.writerows(ordered_options)
-        
         self.active_setoptions = combined_options
 
 
