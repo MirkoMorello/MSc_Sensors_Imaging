@@ -6,19 +6,25 @@ import torch
 import json
 import glob
 
-class SFMNNDataset(Dataset):
+class SFMNNDatasetSupervised(Dataset):
     def __init__(self, 
                  lookup_table, 
                  data_folder, 
                  patch_size=5):
         self.patch_size = patch_size  # Each patch is patch_size x patch_size
+
         # Temporary lists to collect data from JSON files
         LTOA_list = []  
         XTE_list = []   
         SZA_list = []   
         GNDALT_list = [] 
-        FWHM_list = []
         AMBC_list = []   
+
+        # Define the label keys: t_1 to t_12 come from t_vals and R, F come directly.
+        self.label_keys = ["t1", "t2", "t3", "t4", "t5", "t6", 
+                           "t7", "t8", "t9", "t10", "t11", "t12", "R", "F"]
+        # Initialize a dictionary to hold lists for each label key.
+        label_data = {key: [] for key in self.label_keys}
 
         # Load lookup table to get wavelengths (used as column names)
         with open(lookup_table) as f:
@@ -41,7 +47,6 @@ class SFMNNDataset(Dataset):
             SZA_value = data['MODTRAN_settings']['ATM']['SZA']
             GNDALT_value = data['MODTRAN_settings']['ATM']['GNDALT']
             VZA_value = data['MODTRAN_settings']['ATM']['VZA']
-            FWHM_value = data['MODTRAN_settings']['SPECTRAL']['FWHM']
             XTE_value = np.tan(VZA_value) * GNDALT_value
 
             # Append values to corresponding lists.
@@ -49,16 +54,28 @@ class SFMNNDataset(Dataset):
             SZA_list.append(SZA_value)
             GNDALT_list.append(GNDALT_value)
             XTE_list.append(XTE_value)
-            FWHM_list.append(FWHM_value)
             AMBC_list.append(int(amb_c[:-5]))  # Ensure AMBC is an integer
+
+            # Process the ground truth labels.
+            # t_vals keys (t_1 to t_12) are inside 't_vals'
+            t_vals = data['t_vals']
+            for key in self.label_keys:
+                if key.startswith('t'):
+                    label_data[key].append(t_vals[key])
+                else:
+                    # R and F are directly in the JSON.
+                    label_data[key].append(data[key])
 
         # Build the dataset DataFrame from LTOA values and add extra columns.
         self.dataset = pd.DataFrame(LTOA_list, columns=self.wl)
         self.dataset['XTE'] = XTE_list
         self.dataset['SZA'] = SZA_list
         self.dataset['GNDALT'] = GNDALT_list
-        self.dataset['FWHM'] = FWHM_list
         self.dataset['AMBC'] = AMBC_list
+
+        # Add the label columns.
+        for key in self.label_keys:
+            self.dataset[key] = label_data[key]
 
         # Precompute patches as tensors for the first epoch.
         self._resample_patches()
@@ -84,17 +101,41 @@ class SFMNNDataset(Dataset):
         xte = patch['XTE'].values.reshape(self.patch_size, self.patch_size, 1)
         sza = patch['SZA'].values.reshape(self.patch_size, self.patch_size, 1)
         gndalt = patch['GNDALT'].values.reshape(self.patch_size, self.patch_size, 1)
-        fwhm = patch['FWHM'].values.reshape(self.patch_size, self.patch_size, 1)
 
         # Concatenate along the channel dimension
-        patch_tensor = np.concatenate([ltoa, xte, sza, gndalt, fwhm], axis=-1)
+        patch_tensor = np.concatenate([ltoa, xte, sza, gndalt], axis=-1)
         return torch.tensor(patch_tensor, dtype=torch.float)
+
+    def _compute_tensor_label(self, patch):
+        """
+        Convert a patch (DataFrame) into a label tensor of shape [H, W, T, C],
+        where:
+        - H = patch_size (height)
+        - W = patch_size (width)
+        - T = number of label variables (e.g., t1 to t12, R, F)
+        - C = length of each variable (ensured to be equal among all variables)
+        """
+        # Convert labels to structured format
+        label_list = []
+        for key in self.label_keys:
+            label_values = np.array([np.array(row[key]) for _, row in patch.iterrows()])
+            label_list.append(label_values)
+        
+        # Stack along axis 0 to create (T, patch_elem_count, C)
+        label_array = np.stack(label_list, axis=0)
+        
+        # Reshape into (T, H, W, C) and permute to (H, W, T, C)
+        label_patch = label_array.reshape(len(self.label_keys), self.patch_size, self.patch_size, -1)
+        label_patch = np.transpose(label_patch, (1, 2, 0, 3))
+        
+        return torch.tensor(label_patch, dtype=torch.float)
 
     def _resample_patches(self):
         """
         Recompute patches (as tensors) by grouping rows by AMBC (atmospheric condition),
         shuffling each group, and splitting each group into patches of patch_size**2 rows.
         For the last patch (if not enough rows), pad by randomly sampling rows from the same group.
+        Each patch now returns a tuple (data_tensor, label_tensor).
         """
         self.patches = []
         patch_elem_count = self.patch_size ** 2
@@ -110,8 +151,9 @@ class SFMNNDataset(Dataset):
             # Create full patches.
             for i in range(num_full_patches):
                 patch = group.iloc[i * patch_elem_count : (i + 1) * patch_elem_count]
-                tensor_patch = self._compute_tensor_patch(patch, num_wl)
-                self.patches.append(tensor_patch)
+                tensor_data_patch = self._compute_tensor_patch(patch, num_wl)
+                tensor_label_patch = self._compute_tensor_label(patch)
+                self.patches.append((tensor_data_patch, tensor_label_patch))
 
             # For remaining rows, create a final patch by padding.
             if remainder > 0:
@@ -120,8 +162,9 @@ class SFMNNDataset(Dataset):
                 replace_flag = pad_needed > len(group)
                 pad = group.sample(n=pad_needed, replace=replace_flag)
                 patch = pd.concat([patch, pad], ignore_index=True)
-                tensor_patch = self._compute_tensor_patch(patch, num_wl)
-                self.patches.append(tensor_patch)
+                tensor_data_patch = self._compute_tensor_patch(patch, num_wl)
+                tensor_label_patch = self._compute_tensor_label(patch)
+                self.patches.append((tensor_data_patch, tensor_label_patch))
 
     def _reset_retrieval_markers(self):
         """Reset the marker list to track patch retrieval in the current epoch."""
@@ -136,7 +179,7 @@ class SFMNNDataset(Dataset):
     
     def __getitem__(self, idx):
         """
-        Return the precomputed tensor patch corresponding to idx.
+        Return the precomputed (data_tensor, label_tensor) tuple corresponding to idx.
         Once all patches in the current epoch have been retrieved, the patches are reshuffled
         for the next epoch and the retrieval markers are reset.
         """
@@ -144,10 +187,10 @@ class SFMNNDataset(Dataset):
             raise IndexError("Index out of range")
         
         self._retrieved[idx] = True
-        tensor_patch = self.patches[idx]
+        data_patch, label_patch = self.patches[idx]
         
         if all(self._retrieved):
             self._resample_patches()
             self._reset_retrieval_markers()
         
-        return tensor_patch
+        return data_patch, label_patch

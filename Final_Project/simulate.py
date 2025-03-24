@@ -27,12 +27,13 @@ class FourStreamSimulator(nn.Module):
         t10 = t4 * t2
         t11 = t3 * t2
 
+        # t1, t2, t3, t6, t7, t8, t9, t10, t11, R, F
         LTOA = t1 * t2 + (t1 * t8 * R + t9 * R + t10 * R + t11 * R + t6 * F + t7 * F) / (1 - t3 * R)
         return LTOA
 
 # --- HyPlantSensorSimulator ---
 class HyPlantSensorSimulator(nn.Module):
-    def __init__(self, sensor_wavelengths, high_res=0.0055):
+    def __init__(self, sensor_wavelengths, high_res=0.8270):
         super().__init__()
         self.register_buffer('sensor_wavelengths', sensor_wavelengths)
         self.high_res = high_res
