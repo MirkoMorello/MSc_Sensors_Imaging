@@ -221,156 +221,275 @@ class SFMNNDataset(Dataset):
             self._resample_patches()
             self._reset_retrieval_markers()
         return tensor_patch, target_sif
+    
+    
 
 
-class SFMNNDatasetSingle(Dataset):
-    def __init__(self, lookup_table, data_folder, out_dim=3620):
+class SFMNNDatasetSingleWithTargets(Dataset):
+    def __init__(self, lookup_table, data_folder, out_dim_hint=3620):
         """
-        Loads simulation files from the given folder and constructs a DataFrame.
-        Each simulation file (e.g. simulation_sim*.parquet) is assumed to contain:
-          - 'LTOA': A spectral vector.
-          - 'F' (target fluorescence/SIF) as a spectral vector of length out_dim.
-          - 'MODTRAN_settings' with keys 'ATM' (containing 'SZA', 'GNDALT', 'VZA', etc.)
-          - Optionally 'Esun'
-        The network input is built from the LTOA channels and three extra channels (XTE, SZA, GNDALT).
-        Each sample corresponds to a single simulation (a “pixel”) without normalization applied.
-        Normalization can be applied later using the provided normalize_F/unnormalize_F functions.
+        Loads simulation files, including LTOA, t_vals (t1-t11), R, and F.
+        Returns normalized input vector and unnormalized target t, R, F, LTOA tensors.
+        Normalization parameters are computed and stored.
+
+        Args:
+            lookup_table (str): Path to the Parquet or JSON lookup table file.
+            data_folder (str): Path to the directory containing simulation_sim*.parquet files.
+            out_dim_hint (int): Expected number of spectral bands, used if lookup table fails.
         """
-        self.out_dim = out_dim
+        self.out_dim = out_dim_hint
+        self.n_spectral_bands = out_dim_hint
+        self.t_keys_all = [f't{i}' for i in range(1, 12)] # t1 to t11
+        # Define the 9 t-keys relevant for LTOA calc and model prediction order
+        self.t_keys_model_output = ['t1', 't2', 't3', 't6', 't7', 't8', 't9', 't10', 't11']
+        # Define indices corresponding to the 9 model t-keys within the full target_11t tensor
+        self.target_indices_for_9t_compare = [
+            0, # t1
+            1, # t2
+            2, # t3
+            5, # t6
+            6, # t7
+            7, # t8
+            8, # t9
+            9, # t10
+            10 # t11
+        ]
+        assert len(self.t_keys_model_output) == 9
+        assert len(self.target_indices_for_9t_compare) == 9
+
 
         # --- Load lookup table ---
-        if lookup_table.endswith('.parquet'):
-            lookup_table_data = pd.read_parquet(lookup_table).to_dict(orient='records')[0]
-        else:
-            with open(lookup_table) as f:
-                lookup_table_data = json.load(f)
-        self.wl = lookup_table_data["modtran_wavelength"]
-        if len(self.wl) < 100:
-            logger.warning("Lookup table wavelengths appear to be a range. Generating full wavelength grid.")
-            self.wl = np.linspace(self.wl[0], self.wl[1], 3620)
-        else:
-            self.wl = np.array(self.wl)
-        logger.info(f"Using {len(self.wl)} wavelength channels.")
+        try:
+            if lookup_table.endswith('.parquet'):
+                lookup_table_data = pd.read_parquet(lookup_table).to_dict(orient='records')[0]
+            elif lookup_table.endswith('.json'):
+                with open(lookup_table) as f:
+                    lookup_table_data = json.load(f)
+            else:
+                 raise ValueError(f"Unsupported lookup table format: {lookup_table}. Use .parquet or .json")
+
+            self.wl = lookup_table_data.get("modtran_wavelength")
+            if self.wl is None or not isinstance(self.wl, (list, np.ndarray)) or len(self.wl) < 100:
+                logger.warning(f"MODTRAN wavelengths invalid/missing in {lookup_table}. Falling back to out_dim_hint ({self.out_dim}).")
+                # Create placeholder wavelengths if needed for indexing, but rely on data dimension
+                min_wl, max_wl = 650, 850 # Example range, adjust if known
+                self.wl = np.linspace(min_wl, max_wl, self.out_dim)
+                self.n_spectral_bands = self.out_dim
+            else:
+                 self.wl = np.array(self.wl)
+                 self.n_spectral_bands = len(self.wl)
+                 if self.n_spectral_bands != self.out_dim:
+                     logger.info(f"Adjusting out_dim from hint ({self.out_dim}) to actual wavelengths found ({self.n_spectral_bands}).")
+                     self.out_dim = self.n_spectral_bands
+
+            logger.info(f"Using {self.n_spectral_bands} wavelength channels.")
+
+        except Exception as e:
+            logger.error(f"Error loading lookup table {lookup_table}: {e}. Exiting.")
+            raise
 
         # --- Load simulation files ---
         sim_files = glob.glob(os.path.join(data_folder, "simulation_sim*.parquet"))
+        if not sim_files:
+            raise FileNotFoundError(f"No simulation parquet files found in {data_folder}")
         logger.info(f"Found {len(sim_files)} simulation Parquet files.")
-        LTOA_list = []
-        XTE_list = []
-        SZA_list = []
-        GNDALT_list = []
-        F_list = []  # For target SIF.
-        AMBC_list = []
+
+        all_data = []
+        required_sim_keys = ['LTOA', 'F', 'R', 't_vals', 'MODTRAN_settings']
+        required_modtran_keys = ['ATM']
+        required_atm_keys = ['SZA', 'GNDALT', 'VZA']
+        skipped_files = 0
+
         for file_path in tqdm(sim_files, desc="Loading simulation files"):
-            if file_path.endswith('.parquet'):
+            try:
                 data = pd.read_parquet(file_path).to_dict(orient='records')[0]
-            else:
-                with open(file_path, "r") as f:
-                    data = json.load(f)
-            filename = os.path.basename(file_path)
-            try:
-                _, _, sim_n, _, amb_c = filename.split("_")
+
+                # --- Data Validation ---
+                if not all(key in data for key in required_sim_keys):
+                    skipped_files += 1
+                    continue
+                if not isinstance(data['t_vals'], dict) or not all(tk in data['t_vals'] for tk in self.t_keys_all):
+                    skipped_files += 1
+                    continue
+                if not isinstance(data['MODTRAN_settings'], dict) or not all(key in data['MODTRAN_settings'] for key in required_modtran_keys):
+                     skipped_files += 1
+                     continue
+                if not isinstance(data['MODTRAN_settings']['ATM'], dict) or not all(key in data['MODTRAN_settings']['ATM'] for key in required_atm_keys):
+                     skipped_files += 1
+                     continue
+
+                # Extract spectral data first to check dimensions
+                ltoa = data['LTOA']
+                f = data['F']
+                r = data['R']
+                t_vals_dict = data['t_vals']
+
+                if len(ltoa) != self.n_spectral_bands or len(f) != self.n_spectral_bands or len(r) != self.n_spectral_bands:
+                    skipped_files += 1
+                    continue
+                if any(len(t_vals_dict[tk]) != self.n_spectral_bands for tk in self.t_keys_all):
+                    skipped_files += 1
+                    continue
+                # --- End Validation ---
+
+                # Extract geometry
+                sza = data['MODTRAN_settings']['ATM']['SZA']
+                gndalt = data['MODTRAN_settings']['ATM']['GNDALT'] # Assume km
+                vza = data['MODTRAN_settings']['ATM']['VZA']
+                xte = np.tan(np.deg2rad(vza)) * gndalt # Stays in km if gndalt is km
+
+                # Store extracted data (keep as numpy arrays for efficient stacking)
+                all_data.append({
+                    'ltoa': np.array(ltoa, dtype=np.float32),
+                    'f': np.array(f, dtype=np.float32),
+                    'r': np.array(r, dtype=np.float32),
+                    # Stack t_vals in the defined order t1..t11
+                    't_vals': np.stack([np.array(t_vals_dict[tk], dtype=np.float32) for tk in self.t_keys_all]), # Shape [11, n_spec]
+                    'xte': np.float32(xte),
+                    'sza': np.float32(sza),
+                    'gndalt': np.float32(gndalt)
+                })
+
             except Exception as e:
-                logger.error(f"Filename {filename} parsing error: {e}")
-                continue
+                logger.warning(f"Error processing file {file_path}: {e}")
+                skipped_files += 1
 
-            LTOA_value = data['LTOA']
-            F_value = data['F']
-            SZA_value = data['MODTRAN_settings']['ATM']['SZA']
-            GNDALT_value = data['MODTRAN_settings']['ATM']['GNDALT']
-            VZA_value = data['MODTRAN_settings']['ATM']['VZA']
-            XTE_value = np.tan(np.deg2rad(VZA_value)) * GNDALT_value
+        if skipped_files > 0:
+             logger.warning(f"Skipped {skipped_files} files due to missing keys, dimension mismatches, or errors.")
+        if not all_data:
+             raise ValueError("No valid simulation data could be loaded. Check simulation files and paths.")
 
-            LTOA_list.append(LTOA_value)
-            SZA_list.append(SZA_value)
-            GNDALT_list.append(GNDALT_value)
-            XTE_list.append(XTE_value)
-            F_list.append(F_value)
-            try:
-                amb_val = int(amb_c.split(".")[0])
-            except:
-                amb_val = 0
-            AMBC_list.append(amb_val)
+        # Convert list of dicts to a dict of stacked numpy arrays
+        self.data_store = {
+            'ltoa': np.stack([d['ltoa'] for d in all_data]),
+            'f': np.stack([d['f'] for d in all_data]),
+            'r': np.stack([d['r'] for d in all_data]),
+            't_vals': np.stack([d['t_vals'] for d in all_data]), # Shape: [N, 11, n_spectral_bands]
+            'xte': np.array([d['xte'] for d in all_data], dtype=np.float32),
+            'sza': np.array([d['sza'] for d in all_data], dtype=np.float32),
+            'gndalt': np.array([d['gndalt'] for d in all_data], dtype=np.float32),
+        }
 
-        # Build a DataFrame from the loaded simulation values.
-        self.dataset = pd.DataFrame(LTOA_list, columns=self.wl)
-        self.dataset['XTE'] = XTE_list
-        self.dataset['SZA'] = SZA_list
-        self.dataset['GNDALT'] = GNDALT_list
-        self.dataset['F'] = F_list
-        self.dataset['AMBC'] = AMBC_list
+        logger.info(f"Successfully loaded {len(self)} valid simulations.")
 
-        # Compute normalization parameters for LTOA.
-        self.ltoa_mean = self.dataset[self.wl].mean(axis=0).values
-        self.ltoa_std = self.dataset[self.wl].std(axis=0).values
+        # --- Compute normalization parameters ---
+        # Input features (LTOA + extras)
+        self.ltoa_mean = self.data_store['ltoa'].mean(axis=0)
+        self.ltoa_std = self.data_store['ltoa'].std(axis=0)
+        self.xte_mean = self.data_store['xte'].mean()
+        self.xte_std = self.data_store['xte'].std()
+        self.sza_mean = self.data_store['sza'].mean()
+        self.sza_std = self.data_store['sza'].std()
+        self.gndalt_mean = self.data_store['gndalt'].mean()
+        self.gndalt_std = self.data_store['gndalt'].std()
 
-        # Compute normalization parameters for extra channels.
-        self.xte_mean = self.dataset['XTE'].mean()
-        self.xte_std = self.dataset['XTE'].std()
-        self.sza_mean = self.dataset['SZA'].mean()
-        self.sza_std = self.dataset['SZA'].std()
-        self.gndalt_mean = self.dataset['GNDALT'].mean()
-        self.gndalt_std = self.dataset['GNDALT'].std()
+        # Target values (t, R, F) - For unnormalizing model output
+        # Normalize each t-variable (t1..t11) individually across all samples and wavelengths
+        self.t_means = self.data_store['t_vals'].mean(axis=(0, 2)) # Shape: [11]
+        self.t_stds = self.data_store['t_vals'].std(axis=(0, 2))   # Shape: [11]
 
-        # Compute normalization parameters for target SIF (F).
-        F_stack = np.stack(self.dataset['F'].values).astype(np.float32)  # shape: (N, out_dim)
-        self.f_mean = F_stack.mean(axis=0)  # shape: (out_dim,)
-        self.f_std = F_stack.std(axis=0)    # shape: (out_dim,)
+        self.r_mean = self.data_store['r'].mean(axis=0) # Shape: [n_spectral_bands]
+        self.r_std = self.data_store['r'].std(axis=0)   # Shape: [n_spectral_bands]
+        self.f_mean = self.data_store['f'].mean(axis=0) # Shape: [n_spectral_bands]
+        self.f_std = self.data_store['f'].std(axis=0)   # Shape: [n_spectral_bands]
 
-        logger.info(f"Total simulations loaded: {len(self.dataset)}")
+        # Add epsilon to std devs
+        self.epsilon = 1e-6
+        self.ltoa_std += self.epsilon
+        self.xte_std += self.epsilon
+        self.sza_std += self.epsilon
+        self.gndalt_std += self.epsilon
+        self.t_stds += self.epsilon
+        self.r_std += self.epsilon
+        self.f_std += self.epsilon
+
+        logger.info("Normalization parameters computed.")
+        logger.info(f"Dataset initialized with {len(self)} samples.")
 
     def __len__(self):
-        return len(self.dataset)
-    
+        return len(self.data_store['ltoa'])
+
     def get_wl(self):
         return self.wl
 
     def __getitem__(self, idx):
-        if idx < 0 or idx >= len(self.dataset):
+        if idx < 0 or idx >= len(self):
             raise IndexError("Index out of range")
-            
-        row = self.dataset.iloc[idx]
-        num_wl = len(self.wl)
-        # Build input vector by concatenating LTOA and extra channels (XTE, SZA, GNDALT)
-        ltoa = np.array([row[w] for w in self.wl], dtype=np.float32)  # shape: (num_wl,)
-        xte = np.array([row['XTE']], dtype=np.float32)
-        sza = np.array([row['SZA']], dtype=np.float32)
-        gndalt = np.array([row['GNDALT']], dtype=np.float32)
-        input_vec = np.concatenate([ltoa, xte, sza, gndalt], axis=0)  # shape: (num_wl+3,)
+
+        # --- Input Vector (Normalized) ---
+        ltoa_norm = (self.data_store['ltoa'][idx] - self.ltoa_mean) / self.ltoa_std
+        # Ensure extras are treated as scalars before normalization
+        xte_norm = (self.data_store['xte'][idx] - self.xte_mean) / self.xte_std
+        sza_norm = (self.data_store['sza'][idx] - self.sza_mean) / self.sza_std
+        gndalt_norm = (self.data_store['gndalt'][idx] - self.gndalt_mean) / self.gndalt_std
+
+        input_vec = np.concatenate([
+            ltoa_norm,
+            np.array([xte_norm], dtype=np.float32),
+            np.array([sza_norm], dtype=np.float32),
+            np.array([gndalt_norm], dtype=np.float32)
+        ])
         input_tensor = torch.tensor(input_vec, dtype=torch.float)
-        
-        # Get target SIF (F) as a raw (unnormalized) tensor.
-        F_val = np.array(row['F'], dtype=np.float32)  # shape: (out_dim,)
-        F_tensor = torch.tensor(F_val, dtype=torch.float)
-        
-        return input_tensor, F_tensor
 
-    def normalize_F(self, F_tensor):
-        """
-        Normalizes the SIF (F) tensor using the dataset's precomputed mean and std.
-        
-        Args:
-            F_tensor (torch.Tensor): Tensor containing SIF values. Expected shape can be (out_dim,)
-                                     or have extra dimensions.
-        
-        Returns:
-            torch.Tensor: Normalized SIF tensor.
-        """
-        f_mean = torch.tensor(self.f_mean, dtype=F_tensor.dtype, device=F_tensor.device)
-        f_std = torch.tensor(self.f_std, dtype=F_tensor.dtype, device=F_tensor.device)
-        return (F_tensor - f_mean) / (f_std + 1e-6)
+        # --- Target Tensors (Unnormalized) ---
+        # Return all 11 target t's
+        target_11t_tensor = torch.tensor(self.data_store['t_vals'][idx], dtype=torch.float) # Shape: [11, n_spec]
+        target_r_tensor = torch.tensor(self.data_store['r'][idx], dtype=torch.float)      # Shape: [n_spec]
+        target_f_tensor = torch.tensor(self.data_store['f'][idx], dtype=torch.float)      # Shape: [n_spec]
+        target_ltoa_tensor = torch.tensor(self.data_store['ltoa'][idx], dtype=torch.float) # Shape: [n_spec]
 
-    def unnormalize_F(self, norm_F_tensor):
+        return input_tensor, target_11t_tensor, target_r_tensor, target_f_tensor, target_ltoa_tensor
+
+    # --- Unnormalization methods for model outputs ---
+    def unnormalize_t(self, norm_t_tensor):
         """
-        Reverses the normalization of the SIF (F) tensor using the dataset's precomputed mean and std.
-        
-        Args:
-            norm_F_tensor (torch.Tensor): Normalized SIF tensor. Expected shape can be (out_dim,)
-                                          or have extra dimensions.
-        
-        Returns:
-            torch.Tensor: Unnormalized SIF tensor.
+        Unnormalizes the 9 predicted t-values (t1,t2,t3,t6-t11) using the
+        means/stds calculated for t1..t11.
+        Expects norm_t_tensor shape [B, 9, n_spec] or [9, n_spec].
         """
-        f_mean = torch.tensor(self.f_mean, dtype=norm_F_tensor.dtype, device=norm_F_tensor.device)
-        f_std = torch.tensor(self.f_std, dtype=norm_F_tensor.dtype, device=norm_F_tensor.device)
-        return norm_F_tensor * (f_std + 1e-6) + f_mean
+        num_vars_in_tensor = norm_t_tensor.shape[-2]
+        if num_vars_in_tensor != 9:
+             raise ValueError(f"unnormalize_t expects 9 t-variables, but got {num_vars_in_tensor}")
+
+        # Select the means/stds for t1,t2,t3,t6,t7,t8,t9,t10,t11 using their indices [0,1,2,5,6,7,8,9,10]
+        means_for_9t = torch.tensor(self.t_means[self.target_indices_for_9t_compare], dtype=norm_t_tensor.dtype, device=norm_t_tensor.device) # Shape [9]
+        stds_for_9t = torch.tensor(self.t_stds[self.target_indices_for_9t_compare], dtype=norm_t_tensor.dtype, device=norm_t_tensor.device)   # Shape [9]
+
+        # Reshape means/stds for broadcasting
+        if norm_t_tensor.ndim == 3: # Batch dimension present [B, 9, n_spec]
+             means_for_9t = means_for_9t.view(1, -1, 1)
+             stds_for_9t = stds_for_9t.view(1, -1, 1)
+        elif norm_t_tensor.ndim == 2: # No batch dimension [9, n_spec]
+             means_for_9t = means_for_9t.view(-1, 1)
+             stds_for_9t = stds_for_9t.view(-1, 1)
+        else:
+            raise ValueError("Unsupported tensor dimension for unnormalize_t")
+
+        return norm_t_tensor * stds_for_9t + means_for_9t
+
+    def unnormalize_r(self, norm_r_tensor):
+        """Unnormalizes predicted R. Expects [B, n_spec] or [n_spec]."""
+        r_mean_t = torch.tensor(self.r_mean, dtype=norm_r_tensor.dtype, device=norm_r_tensor.device)
+        r_std_t = torch.tensor(self.r_std, dtype=norm_r_tensor.dtype, device=norm_r_tensor.device)
+        if norm_r_tensor.ndim == 2: # Batch dimension present
+            r_mean_t = r_mean_t.unsqueeze(0)
+            r_std_t = r_std_t.unsqueeze(0)
+        return norm_r_tensor * r_std_t + r_mean_t
+
+    def unnormalize_f(self, norm_f_tensor):
+        """Unnormalizes predicted F. Expects [B, n_spec] or [n_spec]."""
+        f_mean_t = torch.tensor(self.f_mean, dtype=norm_f_tensor.dtype, device=norm_f_tensor.device)
+        f_std_t = torch.tensor(self.f_std, dtype=norm_f_tensor.dtype, device=norm_f_tensor.device)
+        if norm_f_tensor.ndim == 2: # Batch dimension present
+            f_mean_t = f_mean_t.unsqueeze(0)
+            f_std_t = f_std_t.unsqueeze(0)
+        return norm_f_tensor * f_std_t + f_mean_t
+
+    def unnormalize_ltoa(self, norm_ltoa_tensor):
+        """Unnormalizes predicted LTOA. Expects [B, n_spec] or [n_spec]."""
+        ltoa_mean_t = torch.tensor(self.ltoa_mean, dtype=norm_ltoa_tensor.dtype, device=norm_ltoa_tensor.device)
+        ltoa_std_t = torch.tensor(self.ltoa_std, dtype=norm_ltoa_tensor.dtype, device=norm_ltoa_tensor.device)
+        if norm_ltoa_tensor.ndim == 2: # Batch dimension present
+            ltoa_mean_t = ltoa_mean_t.unsqueeze(0)
+            ltoa_std_t = ltoa_std_t.unsqueeze(0)
+        return norm_ltoa_tensor * ltoa_std_t + ltoa_mean_t

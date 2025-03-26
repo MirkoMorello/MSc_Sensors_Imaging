@@ -166,21 +166,20 @@ class SFMNNEncoderWithHeadsSingle(nn.Module):
         """
         Args:
           input_channels: Number of input channels (num_wavelengths + 3 extras).
-          num_variables: Number of separate variables/outputs to predict.
+          num_variables: Number of separate variables/outputs to predict (should be 11).
           encoded_dim: Dimension of the shared feature space.
-          out_dim: Desired output dimension per head (e.g., number of wavelengths, typically 3620).
-          
-        The network first normalizes each pixel's input vector through a shared
-        backbone (fully connected layers) and then feeds the resulting features into separate
-        output heads (one per variable) that directly predict the final spectral vector.
+          out_dim: Desired output dimension per head (e.g., number of wavelengths).
         """
         super(SFMNNEncoderWithHeadsSingle, self).__init__()
+        # --- Store input_channels as an attribute ---
+        self.input_channels = input_channels
+        # ------------------------------------------
         self.num_variables = num_variables
         self.out_dim = out_dim
-        
+
         # Normalize each pixel's input features.
         self.input_norm = nn.BatchNorm1d(input_channels)
-        
+
         # Shared backbone: fully connected layers that extract a high-dimensional feature vector.
         self.shared_layers = nn.Sequential(
             nn.Linear(input_channels, 8192),
@@ -196,28 +195,49 @@ class SFMNNEncoderWithHeadsSingle(nn.Module):
             nn.ReLU(),
             nn.Dropout(0.1),
         )
-        
+
         # Create a separate head for each variable.
-        # Each head is a linear layer mapping the shared feature (encoded_dim) to the desired output (out_dim).
         self.heads = nn.ModuleList([nn.Linear(encoded_dim, out_dim) for _ in range(num_variables)])
-    
+
+        # Initialize weights
+        self._initialize_weights()
+
+    def _initialize_weights(self):
+        for m in self.modules():
+            if isinstance(m, nn.Linear):
+                nn.init.kaiming_normal_(m.weight, mode='fan_in', nonlinearity='relu')
+                if m.bias is not None:
+                    nn.init.constant_(m.bias, 0)
+            elif isinstance(m, nn.BatchNorm1d):
+                nn.init.constant_(m.weight, 1)
+                nn.init.constant_(m.bias, 0)
+        # Initialize heads separately (Xavier is often good for final layers)
+        for head in self.heads:
+            nn.init.xavier_normal_(head.weight)
+            if head.bias is not None:
+                nn.init.constant_(head.bias, 0)
+
+
     def forward(self, x):
         """
         Forward pass.
-        
+
         Args:
           x: Tensor of shape [B, input_channels], where each row corresponds to a single pixel.
-          
+
         Returns:
-          outputs: Tensor of shape [B, num_variables, out_dim] where each head predicts a 
-                   spectral vector of dimension out_dim for each pixel. A ReLU is applied so that outputs are non-negative.
+          outputs: Tensor of shape [B, num_variables, out_dim] where each head predicts a
+                   spectral vector of dimension out_dim for each pixel. ReLU applied.
         """
+        if x.shape[1] != self.input_channels:
+             raise ValueError(f"Input tensor second dim ({x.shape[1]}) != expected input_channels ({self.input_channels})")
+
         # Normalize the input features.
         x_norm = self.input_norm(x)  # shape: [B, input_channels]
-        
+
         # Pass through the shared backbone.
         features = self.shared_layers(x_norm)  # shape: [B, encoded_dim]
-        
+
         # Apply each head separately.
         head_outputs = []
         for head in self.heads:
@@ -226,7 +246,7 @@ class SFMNNEncoderWithHeadsSingle(nn.Module):
             # Enforce non-negativity.
             out_head = F.relu(out_head)
             head_outputs.append(out_head)
-        
+
         # Stack the outputs from all heads to get shape [B, num_variables, out_dim]
         outputs = torch.stack(head_outputs, dim=1)
         return outputs
