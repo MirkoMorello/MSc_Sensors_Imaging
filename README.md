@@ -39,7 +39,7 @@ Our solution employs a **self-supervised deep learning framework** that learns t
 ### Key Contributions
 
 1. **Dual-RTM Synthetic Dataset**: Novel pipeline combining SCOPE (vegetation model) and MODTRAN (atmospheric model) to generate physically consistent training data
-2. **Multi-Head Self-Supervised Architecture**: Neural network with specialized heads for each physical component (R, F, t₁-t₁₁)
+2. **Multi-Head Self-Supervised Architecture**: Neural network with specialized heads for each physical component ($R$, $F$, $t_1$ to $t_{11}$)
 3. **Physics-Regularized Loss Functions**: Custom loss functions that enforce physical constraints and improve component separation
 
 ---
@@ -58,8 +58,8 @@ Solar-Induced Fluorescence is electromagnetic radiation emitted by chlorophyll m
 
 **The Challenge:**
 SIF contributes only **1-5% of the total signal** measured by satellites at TOA. The dominant contributions come from:
-- Surface reflectance (R): ~50-80%
-- Atmospheric scattering and absorption (captured in transfer functions t₁-t₁₁)
+- Surface reflectance ($R$): ~50-80%
+- Atmospheric scattering and absorption (captured in transfer functions $t_1$ to $t_{11}$)
 - Instrument noise and calibration errors
 
 ---
@@ -79,7 +79,7 @@ Traditional SIF retrieval methods rely on:
 We combine the best of both worlds:
 - Use physics-based models (SCOPE + MODTRAN) to generate unlimited synthetic training data
 - Employ self-supervised learning to avoid dependence on real ground-truth measurements
-- Leverage the forward physical model within the loss function to guide learning
+- Leverage the forward physical model $f_{forward}$ within the loss function to guide learning
 
 This creates a framework that is:
 - **Scalable**: Unlimited synthetic data generation
@@ -99,36 +99,36 @@ The foundation of our approach is a comprehensive synthetic dataset generated us
 **Purpose**: Simulate vegetation canopy processes and generate surface-level outputs.
 
 **Key Outputs:**
-- **Reflectance (R)**: Top-of-canopy reflectance spectrum (400-2400 nm)
-- **Fluorescence (F)**: Solar-induced fluorescence spectrum (640-850 nm)
-- **ESun**: Incoming solar irradiance at canopy level
+- **Reflectance** ($R$): Top-of-canopy reflectance spectrum (400-2400 nm)
+- **Fluorescence** ($F$): Solar-induced fluorescence spectrum (640-850 nm)
+- **$E_{sun}$**: Incoming solar irradiance at canopy level
 
 **Varied Parameters:**
 - **Leaf Optical Properties** (PROSPECT model):
-  - `Cab`: Chlorophyll content (20-50 μg/cm²)
-  - `Cca`: Carotenoid content (10 μg/cm²)
-  - `Cdm`: Dry matter content (0.012 g/cm²)
-  - `Cw`: Water content (0.009 cm)
-  - `N`: Leaf structure parameter (1.5)
+  - $C_{ab}$: Chlorophyll content (20-50 μg/cm²)
+  - $C_{ca}$: Carotenoid content (10 μg/cm²)
+  - $C_{dm}$: Dry matter content (0.012 g/cm²)
+  - $C_w$: Water content (0.009 cm)
+  - $N$: Leaf structure parameter (1.5)
 
 - **Canopy Structure**:
-  - `LAI`: Leaf Area Index (0-8 m²/m²)
-  - `hc`: Canopy height (2 m)
-  - `LIDFa`, `LIDFb`: Leaf angle distribution parameters
+  - $\text{LAI}$: Leaf Area Index (0-8 m²/m²)
+  - $h_c$: Canopy height (2 m)
+  - $\text{LIDFa}$, $\text{LIDFb}$: Leaf angle distribution parameters
 
 - **Biochemistry**:
-  - `Vcmax25`: Maximum carboxylation rate (60 μmol/m²/s)
-  - `fqe`: Fluorescence quantum efficiency (0.01-2.0)
+  - $V_{cmax25}$: Maximum carboxylation rate (60 μmol/m²/s)
+  - $f_{qe}$: Fluorescence quantum efficiency (0.01-2.0)
 
 - **Environmental Conditions**:
-  - `Ta`: Air temperature (20-30°C)
-  - `Rin`: Incoming radiation (800 W/m²)
-  - `Ca`: CO₂ concentration (410 ppm)
+  - $T_a$: Air temperature (20-30°C)
+  - $R_{in}$: Incoming radiation (800 W/m²)
+  - $C_a$: CO₂ concentration (410 ppm)
 
 - **Observation Geometry**:
-  - `tts`: Solar zenith angle (0-60°)
-  - `tto`: Observer zenith angle (0°)
-  - `psi`: Relative azimuth angle (0°)
+  - $\theta_s$: Solar zenith angle (0-60°)
+  - $\theta_o$: Observer zenith angle (0°)
+  - $\psi$: Relative azimuth angle (0°)
 
 **Implementation**: `scopeWrapper.py` provides a Python interface to SCOPE (MATLAB-based).
 
@@ -137,7 +137,7 @@ The foundation of our approach is a comprehensive synthetic dataset generated us
 **Purpose**: Simulate atmospheric radiative transfer and generate atmospheric transfer functions.
 
 **Key Outputs:**
-- **t₁-t₁₁**: Atmospheric transfer functions representing:
+- **$t_1$ to $t_{11}$**: Atmospheric transfer functions representing:
   - Direct solar transmission
   - Diffuse sky irradiance
   - Path radiance
@@ -147,24 +147,24 @@ The foundation of our approach is a comprehensive synthetic dataset generated us
 **Varied Parameters:**
 
 *Atmospheric Composition:*
-- `O3`: Ozone concentration (0.03-0.06 atm-cm)
-- `NO2`: Nitrogen dioxide (0.01-0.03 atm-cm)
-- `CO`: Carbon monoxide (0.1-0.7 atm-cm)
-- `H2O`: Water vapor content (1.5-2.5 cm)
+- $\text{O}_3$: Ozone concentration (0.03-0.06 atm-cm)
+- $\text{NO}_2$: Nitrogen dioxide (0.01-0.03 atm-cm)
+- $\text{CO}$: Carbon monoxide (0.1-0.7 atm-cm)
+- $\text{H}_2\text{O}$: Water vapor content (1.5-2.5 cm)
 
 *Aerosol Properties:*
-- `AOT`: Aerosol Optical Thickness (0.08-0.2)
-- `SSA`: Single Scattering Albedo (0.95)
-- `G`: Asymmetry factor (0.7)
+- $\tau_{aer}$: Aerosol Optical Thickness (0.08-0.2)
+- $\omega$: Single Scattering Albedo (0.95)
+- $g$: Asymmetry factor (0.7)
 
 *Cloud Conditions:*
-- `cloud_fraction`: Sky coverage (0-0.6)
-- `cloud_optical_depth`: Cloud opacity (0-12)
+- $f_{cloud}$: Sky coverage (0-0.6)
+- $\tau_{cloud}$: Cloud optical depth (0-12)
 
 *Geometry:*
-- `SZA`: Solar zenith angle (matches SCOPE)
-- `VZA`: Observer zenith angle
-- `GNDALT`: Ground altitude (1 km)
+- $\theta_s$: Solar zenith angle (matches SCOPE)
+- $\theta_v$: Observer zenith angle
+- $z_{gnd}$: Ground altitude (1 km)
 
 **Atmospheric Scenarios**: We generated 20 different atmospheric conditions per SCOPE simulation, ranging from clear sky to moderately cloudy conditions with varying pollution levels.
 
@@ -172,16 +172,16 @@ The foundation of our approach is a comprehensive synthetic dataset generated us
 
 The outputs from SCOPE and MODTRAN are combined using the **four-stream radiative transfer equations** to compute Top-of-Atmosphere radiance:
 
-```
-LTOA(λ) = t₁·t₂ + [t₁·(t₈·R + t₉·R + t₁₀·R + t₁₁·R) + t₆·F + t₇·F] / (1 - t₃·R)
-```
+$$
+L_{TOA}(\lambda) = t_1 \cdot t_2 + \frac{t_1 \cdot (t_8 \cdot R + t_9 \cdot R + t_{10} \cdot R + t_{11} \cdot R) + t_6 \cdot F + t_7 \cdot F}{1 - t_3 \cdot R}
+$$
 
 Where:
-- **λ**: Wavelength
-- **R**: Surface reflectance
-- **F**: Fluorescence
-- **t₁-t₁₁**: Atmospheric transfer functions from MODTRAN
-- The denominator term `(1 - t₃·R)` captures multiple scattering between surface and atmosphere
+- $\lambda$: Wavelength
+- $R$: Surface reflectance
+- $F$: Fluorescence
+- $t_1$ to $t_{11}$: Atmospheric transfer functions from MODTRAN
+- The denominator term $(1 - t_3 \cdot R)$ captures multiple scattering between surface and atmosphere
 
 **Dataset Scale:**
 - SCOPE simulations: ~480 unique canopy scenarios
@@ -229,9 +229,9 @@ Input: LTOA + Metadata → [n_spectral + 3 channels]
 - Top-of-atmosphere radiance spectrum (650-850 nm)
 
 **Metadata Channels** (3):
-- `XTE`: Cross-track extent = tan(VZA) × GNDALT
-- `SZA`: Solar zenith angle
-- `GNDALT`: Ground altitude
+- $x_{te}$: Cross-track extent = $\tan(\theta_v) \times z_{gnd}$
+- $\theta_s$: Solar zenith angle
+- $z_{gnd}$: Ground altitude
 
 Total input dimension: 3,623 features per pixel
 
@@ -256,9 +256,9 @@ Input (3623)
 #### Output Heads
 
 **11 Specialized Heads:**
-- 9 heads for atmospheric transfer functions (t₁-t₁₁): Each outputs 3,620 values (full spectrum)
-- 1 head for Reflectance (R): Outputs 3,620 spectral values
-- 1 head for Fluorescence (F): Outputs 3,620 spectral values
+- 9 heads for atmospheric transfer functions ($t_1, t_2, t_3, t_6, t_7, t_8, t_9, t_{10}, t_{11}$): Each outputs 3,620 values (full spectrum)
+- 1 head for Reflectance ($R$): Outputs 3,620 spectral values
+- 1 head for Fluorescence ($F$): Outputs 3,620 spectral values
 
 Each head:
 ```python
@@ -298,76 +298,78 @@ A critical innovation is our multi-term loss function that combines self-supervi
 
 #### Loss Components
 
-**1. Self-Supervised Reconstruction Loss (L_recon)**
+**1. Self-Supervised Reconstruction Loss** ($\mathcal{L}_{recon}$)
 
 The core self-supervised term:
 
-```
-L_recon = MSE(LTOA_pred, LTOA_target)
-```
+$$
+\mathcal{L}_{recon} = \text{MSE}(L_{TOA}^{pred}, L_{TOA}^{target})
+$$
 
-Where `LTOA_pred` is reconstructed from the network's predictions:
-```
-LTOA_pred = forward_model(t₁_pred, ..., t₁₁_pred, R_pred, F_pred)
-```
+Where $L_{TOA}^{pred}$ is reconstructed from the network's predictions:
 
-This loss alone would allow the network to learn, but provides **very weak gradients** for F (fluorescence) since it contributes only ~1-5% to LTOA.
+$$
+L_{TOA}^{pred} = f_{forward}(t_1^{pred}, ..., t_{11}^{pred}, R^{pred}, F^{pred})
+$$
+
+This loss alone would allow the network to learn, but provides **very weak gradients** for $F$ (fluorescence) since it contributes only ~1-5% to $L_{TOA}$.
 
 **2. Component-wise MSE Losses**
 
 Direct supervision on individual components (enabled by synthetic data):
 
-```
-L_t = MSE(t_pred[1:9], t_target[1:9])    # 9 atmospheric terms
-L_R = MSE(R_pred, R_target)               # Reflectance
-L_F = MSE(F_pred, F_target)               # Fluorescence (critical!)
-```
+$$
+\begin{align}
+\mathcal{L}_t &= \text{MSE}(\mathbf{t}^{pred}, \mathbf{t}^{target}) \quad \text{(9 atmospheric terms)} \\
+\mathcal{L}_R &= \text{MSE}(R^{pred}, R^{target}) \quad \text{(Reflectance)} \\
+\mathcal{L}_F &= \text{MSE}(F^{pred}, F^{target}) \quad \text{(Fluorescence - critical!)}
+\end{align}
+$$
 
 **Why this helps:**
 - Provides **strong direct gradient** to the fluorescence head
 - Breaks the degeneracy of the inverse problem
 - Acts as a physical regularizer
 
-**3. NDVI-Based Physiological Constraint (L_ndvi)**
+**3. NDVI-Based Physiological Constraint** ($\mathcal{L}_{NDVI}$)
 
 Plants with low vigor (low NDVI) should not exhibit high fluorescence:
 
-```python
-NDVI = (R_NIR - R_RED) / (R_NIR + R_RED)
-mask = (NDVI < threshold)
-L_ndvi = mean(ReLU(F_pred) * mask)
-```
+$$
+\text{NDVI} = \frac{R_{NIR} - R_{RED}}{R_{NIR} + R_{RED}}
+$$
+
+$$
+\mathcal{L}_{NDVI} = \mathbb{E}\left[\text{ReLU}(F^{pred}) \cdot \mathbb{1}_{\{\text{NDVI} < \tau\}}\right]
+$$
+
+where $\mathbb{1}_{\{\text{NDVI} < \tau\}}$ is an indicator function for low NDVI regions (threshold $\tau = 0.15$).
 
 This penalizes predicted fluorescence in regions where vegetation is sparse or unhealthy.
 
-**4. Physics-Based LTOA Reconstruction (L_phys)**
+**4. Physics-Based LTOA Reconstruction** ($\mathcal{L}_{phys}$)
 
 An alternative formulation that directly uses the forward model:
 
-```
-L_phys = MSE(forward_model(predictions), LTOA_target)
-```
+$$
+\mathcal{L}_{phys} = \text{MSE}\left(f_{forward}(\text{predictions}), L_{TOA}^{target}\right)
+$$
 
 Ensures the predicted components satisfy the physics equations.
 
 #### Combined Loss Function
 
-```python
-L_total = λ_recon · L_recon +
-          λ_t · L_t +
-          λ_R · L_R +
-          λ_F · L_F +
-          λ_ndvi · L_ndvi +
-          λ_phys · L_phys
-```
+$$
+\mathcal{L}_{total} = \lambda_{recon} \cdot \mathcal{L}_{recon} + \lambda_t \cdot \mathcal{L}_t + \lambda_R \cdot \mathcal{L}_R + \lambda_F \cdot \mathcal{L}_F + \lambda_{NDVI} \cdot \mathcal{L}_{NDVI} + \lambda_{phys} \cdot \mathcal{L}_{phys}
+$$
 
 **Loss Weights** (tuned hyperparameters):
-- λ_recon = 0.1 (lower weight since it's implicitly included in L_phys)
-- λ_t = 1.0
-- λ_R = 1.0
-- λ_F = 1.0 (critical component)
-- λ_ndvi = 1.0
-- λ_phys = 1.0
+- $\lambda_{recon} = 0.1$ (lower weight since it's implicitly included in $\mathcal{L}_{phys}$)
+- $\lambda_t = 1.0$
+- $\lambda_R = 1.0$
+- $\lambda_F = 1.0$ (critical component)
+- $\lambda_{NDVI} = 1.0$
+- $\lambda_{phys} = 1.0$
 
 **Files**: `loss.py` implements all loss functions
 
@@ -494,7 +496,7 @@ model = model.to(device)
 ```
 
 **Model Summary:**
-- Parameters: ~300M (primarily in output heads: 11 × 8192 × 3620)
+- Parameters: ~300M (primarily in output heads: $11 \times 8192 \times 3620$)
 - Memory footprint: ~1.2 GB
 - Forward pass time: ~50ms per batch (batch_size=32, GPU)
 
@@ -592,21 +594,21 @@ for epoch in range(num_epochs):
 
 ### Successes
 
-1. **LTOA Reconstruction**: The network successfully learns to reconstruct LTOA from predicted components with low MSE (<1% error)
+1. **LTOA Reconstruction**: The network successfully learns to reconstruct $L_{TOA}$ from predicted components with low MSE (<1% error)
 
-2. **Reflectance Retrieval**: Surface reflectance (R) is predicted with high accuracy (R² > 0.95)
+2. **Reflectance Retrieval**: Surface reflectance ($R$) is predicted with high accuracy ($R^2 > 0.95$)
 
 3. **Atmospheric Terms**: Most atmospheric transfer functions are well-recovered
 
 ### Challenges
 
-1. **Fluorescence Overshooting**: The network tends to **overestimate fluorescence (F)**, particularly when true F is low
+1. **Fluorescence Overshooting**: The network tends to **overestimate fluorescence** ($F$), particularly when true $F$ is low
    - Root cause: Ill-posed nature of the inverse problem
-   - Multiple combinations of R, F, and t_x can produce similar LTOA
-   - The weak F signal (~1-5%) provides insufficient gradient
+   - Multiple combinations of $R$, $F$, and $\mathbf{t}$ can produce similar $L_{TOA}$
+   - The weak $F$ signal (~1-5%) provides insufficient gradient
 
-2. **Component Degeneracy**: The self-supervised loss alone cannot uniquely determine F
-   - Some error in F can be compensated by adjusting R or atmospheric terms
+2. **Component Degeneracy**: The self-supervised loss alone cannot uniquely determine $F$
+   - Some error in $F$ can be compensated by adjusting $R$ or atmospheric terms
    - This is a **fundamental limitation** of purely self-supervised approaches for this problem
 
 3. **Sensitivity to Initialization**: Model performance varies with random weight initialization
@@ -614,11 +616,11 @@ for epoch in range(num_epochs):
 
 ### Insights
 
-- **Synthetic Data is Essential**: Without ground-truth F, we cannot evaluate or regularize predictions
-- **Physics-Based Losses Help**: Direct MSE on F significantly improves retrieval compared to reconstruction loss alone
+- **Synthetic Data is Essential**: Without ground-truth $F$, we cannot evaluate or regularize predictions
+- **Physics-Based Losses Help**: Direct MSE on $F$ (i.e., $\mathcal{L}_F$) significantly improves retrieval compared to reconstruction loss alone
 - **The Inverse Problem is Hard**: Even with perfect synthetic data, the ill-posed nature limits accuracy
 - **Future Directions**:
-  - Incorporate spectral priors (e.g., known F emission shape)
+  - Incorporate spectral priors (e.g., known $F$ emission shape)
   - Use multi-task learning with auxiliary outputs (e.g., vegetation indices)
   - Explore uncertainty quantification to flag unreliable predictions
 
