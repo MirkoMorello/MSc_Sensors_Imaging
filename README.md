@@ -1,8 +1,9 @@
 # Self-Supervised Neural Network for Solar-Induced Fluorescence Retrieval
 
 > **MSc Thesis Project - Machine Learning for Modeling**
-> **Author:** Mirko Morello
+> **Authors:** Mirko Morello & Andrea Yachaya
 > **Institution:** Master of Science in Sensors and Imaging
+> **Motivation:** Supporting ESA's Fluorescence Explorer (FLEX) mission
 
 ---
 
@@ -33,6 +34,8 @@
 ## Overview
 
 This project tackles one of the most challenging problems in remote sensing: **retrieving Solar-Induced Fluorescence (SIF)** from hyperspectral satellite imagery. SIF is a weak optical signal emitted by plants during photosynthesis and serves as a direct indicator of ecosystem health and carbon uptake. However, extracting this faint signal from top-of-atmosphere (TOA) satellite measurements is an **ill-posed inverse problem** complicated by atmospheric effects and surface reflectance.
+
+**Mission Context:** With the upcoming launch of ESA's Fluorescence Explorer (FLEX) mission, which will provide unprecedented global SIF measurements, developing robust retrieval methods is more critical than ever for understanding plant physiology at multiple scales.
 
 Our solution employs a **self-supervised deep learning framework** that learns to decompose at-sensor radiance into its physical components without requiring extensive ground-truth SIF measurements. The key innovation is the use of a **dual Radiative Transfer Model (RTM)** setup—combining SCOPE and MODTRAN—to generate a physically realistic synthetic training dataset.
 
@@ -184,10 +187,11 @@ Where:
 - The denominator term $(1 - t_3 \cdot R)$ captures multiple scattering between surface and atmosphere
 
 **Dataset Scale:**
-- SCOPE simulations: ~480 unique canopy scenarios
+- SCOPE simulations: 1,440 unique canopy scenarios
 - MODTRAN scenarios per SCOPE: 20 atmospheric conditions
-- **Total samples**: ~9,600 unique LTOA spectra
-- Spectral resolution: ~3,620 wavelength bands (650-850 nm)
+- **Total samples**: **28,800 unique LTOA spectra**
+- Spectral resolution: 3,620 wavelength bands (650-850 nm)
+- MODTRAN spectral resolution: 0.1 cm⁻¹ (very high resolution)
 
 **Files**:
 - `dataset.py`: PyTorch Dataset classes for loading and preprocessing
@@ -284,9 +288,11 @@ Linear(8192 → 3620) + ReLU
 - Slightly better performance on complex scenes
 
 **3. SFMNNEncoderWithHeads** (Patch-based):
-- Processes spatial patches (5×5 pixels)
-- Input: [B, 3623, 5, 5]
+- Processes spatial patches (explored with 17×17 pixels in experiments)
+- Input: [B, 3623, H, W] where H=W=17
+- Each patch treats simulations as pixels in a spatial arrangement
 - Exploits spatial correlations (for future work with real imagery)
+- Reduces noise through local spatial consistency
 
 **Files**: `network.py` contains all architecture implementations
 
@@ -294,7 +300,12 @@ Linear(8192 → 3620) + ReLU
 
 ### 3. Physics-Based Loss Functions
 
-A critical innovation is our multi-term loss function that combines self-supervised learning with physics-based regularization.
+A critical innovation is our multi-term loss function that combines self-supervised learning with physics-based regularization. The loss function evolved through three major versions during development:
+
+**Loss Function Evolution:**
+1. **SFMNNLoss (Baseline)**: MSE on LTOA reconstruction only - insufficient for robust SIF retrieval
+2. **SFMNNLossEnhanced**: Added direct SIF MSE, NDVI penalty, and L1 regularization
+3. **PhysicsRegularizedLoss (Final)**: Comprehensive supervision on all components (t, R, F)
 
 #### Loss Components
 
@@ -606,23 +617,37 @@ for epoch in range(num_epochs):
    - Root cause: Ill-posed nature of the inverse problem
    - Multiple combinations of $R$, $F$, and $\mathbf{t}$ can produce similar $L_{TOA}$
    - The weak $F$ signal (~1-5%) provides insufficient gradient
+   - **Bias toward high-F examples**: Network prioritizes matching high-fluorescence cases where MSE is largest, leading to systematic overestimation elsewhere
+   - Even direct MSE supervision on $F$ only improved retrieval for high-SIF samples
 
 2. **Component Degeneracy**: The self-supervised loss alone cannot uniquely determine $F$
    - Some error in $F$ can be compensated by adjusting $R$ or atmospheric terms
    - This is a **fundamental limitation** of purely self-supervised approaches for this problem
+   - The inverse problem is theoretically ill-posed: no unique mapping exists from $L_{TOA}$ to $(R, F, \mathbf{t})$
 
-3. **Sensitivity to Initialization**: Model performance varies with random weight initialization
-   - Suggests multiple local minima in the loss landscape
+3. **Dataset Quality Issues**:
+   - Unrealistically high fluorescence values in some synthetic samples (outliers from wide $f_{qe}$ range: 0.01-2.0)
+   - These outliers disproportionately influenced the loss, exacerbating overshoot tendency
+   - Highlights critical importance of physically plausible parameter ranges
+
+4. **Difficulty Overfitting**: Surprisingly, the network resisted overfitting even the training set
+   - Suggests the problem is so ill-posed that even memorization is difficult
+   - Reinforces the need for additional constraints or input information
 
 ### Insights
 
 - **Synthetic Data is Essential**: Without ground-truth $F$, we cannot evaluate or regularize predictions
-- **Physics-Based Losses Help**: Direct MSE on $F$ (i.e., $\mathcal{L}_F$) significantly improves retrieval compared to reconstruction loss alone
-- **The Inverse Problem is Hard**: Even with perfect synthetic data, the ill-posed nature limits accuracy
+- **Physics-Based Losses Help Partially**: Direct MSE on $F$ (i.e., $\mathcal{L}_F$) improves retrieval for high-SIF samples but doesn't solve the fundamental ill-posedness
+- **The Inverse Problem is Fundamentally Hard**: Even with perfect synthetic data and comprehensive supervision, the ill-posed nature limits accuracy. Simply adding direct supervision via MSE is insufficient when input features lack necessary constraints.
+- **Dataset Realism is Critical**: Unrealistic parameter ranges (especially $f_{qe}$) create outliers that bias the entire learning process
 - **Future Directions**:
-  - Incorporate spectral priors (e.g., known $F$ emission shape)
-  - Use multi-task learning with auxiliary outputs (e.g., vegetation indices)
-  - Explore uncertainty quantification to flag unreliable predictions
+  - **Refine synthetic dataset**: Critically review SCOPE/MODTRAN parameter ranges for physical realism
+  - **Balance dataset**: Weight loss or resample to prevent high-F outliers from dominating
+  - **Multi-angle observations**: Incorporate varied viewing geometries to constrain the inverse problem
+  - **Robust loss functions**: Explore Huber loss or relative error metrics less sensitive to outliers
+  - **Spectral priors**: Incorporate known $F$ emission shape characteristics
+  - **Real data validation**: Fine-tune on actual hyperspectral measurements for domain adaptation
+  - **Uncertainty quantification**: Flag unreliable predictions where the inverse problem is most ambiguous
 
 ---
 
@@ -850,11 +875,19 @@ This work was completed as part of the MSc program in Sensors and Imaging. Speci
 
 ## Contact
 
-**Author**: Mirko Morello
+**Authors**:
+- **Mirko Morello** - m.morello11@campus.unimib.it
+- **Andrea Yachaya** - a.yachaya@campus.unimib.it
+
 **GitHub**: https://github.com/MirkoMorello
 **Project Repository**: https://github.com/MirkoMorello/MSc_Sensors_Imaging
 
 For questions or collaboration inquiries, please open an issue on GitHub.
+
+## Final Report
+
+The complete final report with detailed results and analysis is available at:
+[Final_report_Morello_Yachaya.pdf](Final_Project/Final_report_Morello_Yachaya.pdf)
 
 ---
 
