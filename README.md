@@ -4,6 +4,10 @@
 > **Author:** Mirko Morello
 > **Institution:** Master of Science in Sensors and Imaging
 
+<p align="center">
+  <img src="docs/assets/portfolio-card.png" alt="Solar-induced fluorescence retrieval portfolio card" width="100%">
+</p>
+
 ---
 
 ## Table of Contents
@@ -184,9 +188,8 @@ Where:
 - The denominator term $(1 - t_3 \cdot R)$ captures multiple scattering between surface and atmosphere
 
 **Dataset Scale:**
-- SCOPE simulations: ~480 unique canopy scenarios
-- MODTRAN scenarios per SCOPE: 20 atmospheric conditions
-- **Total samples**: ~9,600 unique LTOA spectra
+- SCOPE and MODTRAN parameter sweeps covering vegetation, atmosphere, cloud, aerosol, and observation geometry scenarios
+- **Total samples**: 28,800 synthetic LTOA spectra in the full experiment setup
 - Spectral resolution: ~3,620 wavelength bands (650-850 nm)
 
 **Files**:
@@ -592,15 +595,15 @@ for epoch in range(num_epochs):
 
 ## Key Findings
 
-### Successes
+### What Worked
 
-1. **LTOA Reconstruction**: The network successfully learns to reconstruct $L_{TOA}$ from predicted components with low MSE (<1% error)
+1. **LTOA Reconstruction**: The network learns a physically consistent reconstruction objective for $L_{TOA}$ from predicted components
 
-2. **Reflectance Retrieval**: Surface reflectance ($R$) is predicted with high accuracy ($R^2 > 0.95$)
+2. **Reflectance Retrieval**: Surface reflectance ($R$) is much easier to recover than fluorescence because it dominates the measured signal
 
-3. **Atmospheric Terms**: Most atmospheric transfer functions are well-recovered
+3. **Failure Analysis**: The experiments make the degeneracy of self-supervised SIF retrieval explicit, especially when true fluorescence is weak
 
-### Challenges
+### What Failed / Remains Open
 
 1. **Fluorescence Overshooting**: The network tends to **overestimate fluorescence** ($F$), particularly when true $F$ is low
    - Root cause: Ill-posed nature of the inverse problem
